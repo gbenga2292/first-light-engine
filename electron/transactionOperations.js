@@ -251,6 +251,7 @@ export async function processReturnTransaction(db, returnData) {
       }
 
       console.log(`Processing return for asset ${assetId}: total=${summary.total}, good=${summary.good}, damaged=${summary.damaged}, missing=${summary.missing}`);
+      console.log(`Asset before update:`, asset);
 
       // Reduce reserved quantity by total returned
       const currentReserved = asset.reserved_quantity || 0;
@@ -258,8 +259,11 @@ export async function processReturnTransaction(db, returnData) {
 
       // Reduce site quantities
       const siteQuantities = asset.site_quantities ? JSON.parse(asset.site_quantities) : {};
+      console.log(`Site quantities before update:`, siteQuantities);
+      console.log(`Waybill siteId:`, waybill.siteId);
       const currentSiteQty = siteQuantities[waybill.siteId] || 0;
       const newSiteQty = Math.max(0, currentSiteQty - summary.total);
+      console.log(`Site ${waybill.siteId}: current qty=${currentSiteQty}, reducing by=${summary.total}, new qty=${newSiteQty}`);
       
       if (newSiteQty === 0) {
         delete siteQuantities[waybill.siteId];
