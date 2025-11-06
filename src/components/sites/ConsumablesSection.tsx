@@ -60,24 +60,18 @@ export const ConsumablesSection = ({
   const siteConsumables = assets.filter(asset => {
     if (asset.type !== 'consumable') return false;
     
-    const hasSiteQuantity = asset.siteQuantities && asset.siteQuantities[site.id] !== undefined;
+    // Check if consumable has usage logs at this site (includes historical data)
     const hasLogs = consumableLogs.some(log => 
       String(log.consumableId) === String(asset.id) && 
       String(log.siteId) === String(site.id)
     );
     
-    console.log('🔍 Consumable filter:', {
-      name: asset.name,
-      id: asset.id,
-      siteId: site.id,
-      siteQuantities: asset.siteQuantities,
-      qtyAtSite: asset.siteQuantities?.[site.id],
-      hasSiteQuantity,
-      hasLogs,
-      included: hasSiteQuantity || hasLogs
-    });
+    // Check if consumable currently has quantity at this site (including 0)
+    const hasSiteQuantity = asset.siteQuantities && asset.siteQuantities[site.id] !== undefined;
     
-    return hasSiteQuantity || hasLogs;
+    // Show consumable if it has logs OR current site quantity
+    // This ensures consumables with historical usage remain visible even if exhausted
+    return hasLogs || hasSiteQuantity;
   });
 
   const handleLogUsage = (consumable: Asset) => {
@@ -218,7 +212,7 @@ export const ConsumablesSection = ({
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {siteConsumables.map((consumable) => {
-              const currentQty = consumable.siteQuantities![site.id];
+              const currentQty = consumable.siteQuantities?.[site.id] ?? 0;
               const totalUsed = getTotalUsed(consumable.id);
               const logs = getConsumableLogs(consumable.id);
               
