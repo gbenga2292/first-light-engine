@@ -84,12 +84,13 @@ export const Dashboard = ({ assets, waybills, quickCheckouts, sites, equipmentLo
   // Helper function to get site for equipment
   const getSiteForEquipment = (asset: Asset): Site | null => {
     if (asset.siteId) {
-      return sites.find(s => s.id === asset.siteId) || null;
+      // Convert both to strings for comparison
+      return sites.find(s => String(s.id) === String(asset.siteId)) || null;
     }
     // For equipment with siteQuantities, get the first site
     if (asset.siteQuantities) {
       const siteId = Object.keys(asset.siteQuantities)[0];
-      return sites.find(s => s.id === siteId) || null;
+      return sites.find(s => String(s.id) === String(siteId)) || null;
     }
     return null;
   };
