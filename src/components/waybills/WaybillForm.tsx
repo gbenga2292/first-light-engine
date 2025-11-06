@@ -35,7 +35,7 @@ export const WaybillForm = ({ assets, sites, employees, vehicles, onCreateWaybil
   const [formData, setFormData] = useState<WaybillFormData>(() => {
     const activeEmployees = employees.filter(emp => emp.status === 'active');
     return {
-      siteId: sites.length > 0 ? sites[0].id : '',
+      siteId: sites.length > 0 ? String(sites[0].id) : '',
       driverName: activeEmployees.length > 0 ? activeEmployees[0].name : '',
       vehicle: vehicles.length > 0 ? vehicles[0].name : '',
       expectedReturnDate: '',
@@ -178,7 +178,7 @@ export const WaybillForm = ({ assets, sites, employees, vehicles, onCreateWaybil
                 <div className="space-y-2">
                   <Label htmlFor="siteId">Site *</Label>
                   <Select
-                    value={formData.siteId}
+                    value={String(formData.siteId)}
                     onValueChange={(value) => setFormData({...formData, siteId: value})}
                   >
                     <SelectTrigger className="border-0 bg-muted/50 focus:bg-background transition-all duration-300">
@@ -186,7 +186,7 @@ export const WaybillForm = ({ assets, sites, employees, vehicles, onCreateWaybil
                     </SelectTrigger>
                     <SelectContent>
                       {sites.map((site) => (
-                        <SelectItem key={site.id} value={site.id}>
+                        <SelectItem key={site.id} value={String(site.id)}>
                           {site.name}
                         </SelectItem>
                       ))}
