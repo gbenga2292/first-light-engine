@@ -327,30 +327,63 @@ export const Dashboard = ({ assets, waybills, quickCheckouts, sites, equipmentLo
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {activities.slice(0, 5).map(activity => (
-              <div key={activity.id} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
-                <div>
-                  <div className="font-medium flex items-center gap-2">
-                    <User className="h-4 w-4 text-primary" />
-                    {activity.userName || activity.userId}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {activity.action.replace('_', ' ').toUpperCase()} on {activity.entity.replace('_', ' ')}
-                    {activity.entityId && ` (${activity.entityId})`}
-                  </div>
-                  {activity.details && (
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {activity.details}
+            {activities.slice(0, 5).map(activity => {
+              // Format the action text to be more readable
+              const formatAction = (action: string): string => {
+                return action
+                  .replace(/_/g, ' ')
+                  .split(' ')
+                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(' ');
+              };
+
+              // Format the entity text
+              const formatEntity = (entity: string): string => {
+                return entity
+                  .replace(/_/g, ' ')
+                  .split(' ')
+                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(' ');
+              };
+
+              // Get site name if entityId is a site ID
+              const getDisplayEntityId = (entityId?: string): string => {
+                if (!entityId) return '';
+                
+                // Check if it's a site ID pattern and get the site name
+                const site = sites.find(s => s.id === entityId);
+                if (site) {
+                  return site.name;
+                }
+                
+                return entityId;
+              };
+
+              return (
+                <div key={activity.id} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                  <div>
+                    <div className="font-medium flex items-center gap-2">
+                      <User className="h-4 w-4 text-primary" />
+                      {activity.userName || activity.userId}
                     </div>
-                  )}
-                </div>
-                <div className="text-right">
-                  <div className="text-xs text-muted-foreground">
-                    {activity.timestamp.toLocaleDateString()} {activity.timestamp.toLocaleTimeString()}
+                    <div className="text-sm text-muted-foreground">
+                      {formatAction(activity.action)} {formatEntity(activity.entity)}
+                      {activity.entityId && ` - ${getDisplayEntityId(activity.entityId)}`}
+                    </div>
+                    {activity.details && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {activity.details}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-muted-foreground">
+                      {activity.timestamp.toLocaleDateString()} {activity.timestamp.toLocaleTimeString()}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {activities.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
                 <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
