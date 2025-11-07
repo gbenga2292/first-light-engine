@@ -58,29 +58,32 @@ export const ConsumablesSection = ({
 
   // Filter consumables at the site (INCLUDING depleted/zero and historical via logs)
   const siteConsumables = assets.filter(asset => {
-    const isConsumable = asset.type === 'consumable';
+    if (asset.type !== 'consumable') return false;
+    
     const hasSiteQty = asset.siteQuantities && asset.siteQuantities[String(site.id)] !== undefined;
     const hasLogs = consumableLogs.some(log => String(log.consumableId) === String(asset.id) && String(log.siteId) === String(site.id));
     
-    console.log('Consumable filter debug:', {
-      assetName: asset.name,
-      assetId: asset.id,
-      assetType: asset.type,
-      isConsumable,
-      siteId: site.id,
-      siteQuantities: asset.siteQuantities,
-      hasSiteQty,
-      hasLogs,
-      totalLogsForAsset: consumableLogs.filter(log => String(log.consumableId) === String(asset.id)).length,
-      logsForThisSite: consumableLogs.filter(log => String(log.consumableId) === String(asset.id) && String(log.siteId) === String(site.id)).length
-    });
+    if (asset.type === 'consumable') {
+      console.log('🔍 CONSUMABLE DEBUG:', {
+        assetName: asset.name,
+        assetId: asset.id,
+        siteId: site.id,
+        'siteQuantities (raw)': asset.siteQuantities,
+        'String(site.id)': String(site.id),
+        'siteQuantities[String(site.id)]': asset.siteQuantities?.[String(site.id)],
+        hasSiteQty,
+        hasLogs,
+        'Will show?': hasSiteQty || hasLogs,
+        'Matching logs': consumableLogs.filter(log => String(log.consumableId) === String(asset.id) && String(log.siteId) === String(site.id))
+      });
+    }
     
-    return isConsumable && (hasSiteQty || hasLogs);
+    return hasSiteQty || hasLogs;
   });
 
-  console.log('Total consumables at site:', siteConsumables.length);
-  console.log('All consumable logs:', consumableLogs);
-  console.log('Site ID:', site.id);
+  console.log('✅ Total consumables at site:', siteConsumables.length);
+  console.log('📊 All consumable logs:', consumableLogs);
+  console.log('🏗️ Site ID:', site.id);
 
   const handleLogUsage = (consumable: Asset) => {
     setSelectedConsumable(consumable);
