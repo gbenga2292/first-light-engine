@@ -56,35 +56,49 @@ const Index = () => {
   const [assets, setAssets] = useState<Asset[]>([]);
 
   // Load assets from database
-  useEffect(() => {
-    (async () => {
-      if (window.db) {
-        try {
-          const loadedAssets = await window.db.getAssets();
-          const processedAssets = loadedAssets.map((item: any) => {
-            const asset = {
-              ...item,
-              createdAt: new Date(item.createdAt),
-              updatedAt: new Date(item.updatedAt),
-              siteQuantities: item.site_quantities ? JSON.parse(item.site_quantities) : {}
-            };
-            // Recalculate availableQuantity on load
-            if (!asset.siteId) {
-              const reservedQuantity = asset.reservedQuantity || 0;
-              const damagedCount = asset.damagedCount || 0;
-              const missingCount = asset.missingCount || 0;
-              const totalQuantity = asset.quantity;
-              asset.availableQuantity = totalQuantity - reservedQuantity - damagedCount - missingCount;
-            }
-            return asset;
-          });
-          console.log('Loaded assets with availableQuantity:', processedAssets);
-          setAssets(processedAssets);
-        } catch (error) {
-          logger.error('Failed to load assets from database', error);
-        }
+  const loadAssets = async () => {
+    if (window.db) {
+      try {
+        const loadedAssets = await window.db.getAssets();
+        const processedAssets = loadedAssets.map((item: any) => {
+          const asset = {
+            ...item,
+            createdAt: new Date(item.createdAt),
+            updatedAt: new Date(item.updatedAt),
+            siteQuantities: item.site_quantities ? JSON.parse(item.site_quantities) : {}
+          };
+          // Recalculate availableQuantity on load
+          if (!asset.siteId) {
+            const reservedQuantity = asset.reservedQuantity || 0;
+            const damagedCount = asset.damagedCount || 0;
+            const missingCount = asset.missingCount || 0;
+            const totalQuantity = asset.quantity;
+            asset.availableQuantity = totalQuantity - reservedQuantity - damagedCount - missingCount;
+          }
+          return asset;
+        });
+        console.log('Loaded assets with availableQuantity:', processedAssets);
+        setAssets(processedAssets);
+      } catch (error) {
+        logger.error('Failed to load assets from database', error);
       }
-    })();
+    }
+  };
+
+  useEffect(() => {
+    loadAssets();
+  }, []);
+
+  // Listen for asset refresh events from WaybillsContext
+  useEffect(() => {
+    const handleRefreshAssets = () => {
+      loadAssets();
+    };
+
+    window.addEventListener('refreshAssets', handleRefreshAssets);
+    return () => {
+      window.removeEventListener('refreshAssets', handleRefreshAssets);
+    };
   }, []);
 
   const [waybills, setWaybills] = useState<Waybill[]>([]);
@@ -268,11 +282,12 @@ const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
       if (window.db) {
         try {
           const logs = await window.db.getConsumableLogs();
+          console.log('Initial load of consumable logs:', logs);
           setConsumableLogs(logs.map((item: any) => ({
             id: item.id,
-            consumableId: item.consumable_id,
+            consumableId: String(item.consumable_id), // Ensure string type for consistent comparison
             consumableName: item.consumable_name,
-            siteId: item.site_id,
+            siteId: String(item.site_id), // Ensure string type for consistent comparison
             date: new Date(item.date),
             quantityUsed: item.quantity_used,
             quantityRemaining: item.quantity_remaining,
@@ -680,7 +695,8 @@ const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
         const asset = {
           ...item,
           createdAt: new Date(item.createdAt),
-          updatedAt: new Date(item.updatedAt)
+          updatedAt: new Date(item.updatedAt),
+          siteQuantities: item.site_quantities ? JSON.parse(item.site_quantities) : {}
         };
         // Recalculate availableQuantity on load
         if (!asset.siteId) {
@@ -696,14 +712,23 @@ const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
 
       // Reload waybills from database
       const loadedWaybills = await window.db.getWaybills();
-      setWaybills(loadedWaybills.map((item: any) => ({
+      const updatedWaybills = loadedWaybills.map((item: any) => ({
         ...item,
         issueDate: new Date(item.issueDate),
         expectedReturnDate: item.expectedReturnDate ? new Date(item.expectedReturnDate) : undefined,
         sentToSiteDate: item.sentToSiteDate ? new Date(item.sentToSiteDate) : undefined,
         createdAt: new Date(item.createdAt),
         updatedAt: new Date(item.updatedAt)
-      })));
+      }));
+      setWaybills(updatedWaybills);
+
+      // Update the displayed waybill document if it's currently being shown
+      if (showWaybillDocument && showWaybillDocument.id === waybill.id) {
+        const updatedWaybill = updatedWaybills.find(wb => wb.id === waybill.id);
+        if (updatedWaybill) {
+          setShowWaybillDocument(updatedWaybill);
+        }
+      }
 
       // Reload site transactions from database
       const loadedTransactions = await window.db.getSiteTransactions();
@@ -1656,13 +1681,19 @@ const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
                   used_by: log.usedBy,
                   notes: log.notes
                 };
+                
+                console.log('Saving consumable log:', logData);
                 await window.db.createConsumableLog(logData);
+                
+                // Reload all consumable logs from database
                 const logs = await window.db.getConsumableLogs();
+                console.log('Reloaded logs from database:', logs);
+                
                 setConsumableLogs(logs.map((item: any) => ({
                   id: item.id,
-                  consumableId: item.consumable_id,
+                  consumableId: String(item.consumable_id), // Ensure string type
                   consumableName: item.consumable_name,
-                  siteId: item.site_id,
+                  siteId: String(item.site_id), // Ensure string type
                   date: new Date(item.date),
                   quantityUsed: item.quantity_used,
                   quantityRemaining: item.quantity_remaining,
@@ -1690,8 +1721,15 @@ const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
                     site_quantities: JSON.stringify(updatedSiteQuantities),
                     updated_at: new Date().toISOString()
                   });
-                  setAssets(prev => prev.map(a => a.id === asset.id ? updatedAsset : a));
+                  
+                  // Reload assets to get fresh data
+                  await loadAssets();
                 }
+                
+                toast({
+                  title: "Usage Logged",
+                  description: `Consumable usage logged successfully. You can add more logs for the same date if needed.`,
+                });
               } catch (error) {
                 console.error('Failed to save consumable log:', error);
                 toast({

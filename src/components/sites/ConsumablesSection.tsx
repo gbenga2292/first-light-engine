@@ -57,43 +57,16 @@ export const ConsumablesSection = ({
   });
 
   // Filter consumables at the site (INCLUDING depleted/zero and historical via logs)
-  console.log('🔍 DEBUG: All assets count:', assets.length);
-  console.log('🔍 DEBUG: All consumable logs for site', site.id, ':', consumableLogs.filter(log => String(log.siteId) === String(site.id)));
-  
-  const siteConsumables = assets.filter(asset => {
-    if (asset.type !== 'consumable') return false;
-    
-    // Check if consumable has usage logs at this site (includes historical data)
-    const hasLogs = consumableLogs.some(log => 
-      String(log.consumableId) === String(asset.id) && 
-      String(log.siteId) === String(site.id)
-    );
-    
-    // Check if consumable currently has quantity at this site (including 0)
-    const hasSiteQuantity = asset.siteQuantities && asset.siteQuantities[site.id] !== undefined;
-    
-    const shouldShow = hasLogs || hasSiteQuantity;
-    
-    console.log('🔍 Consumable filter:', {
-      name: asset.name,
-      id: asset.id,
-      type: asset.type,
-      siteQuantities: asset.siteQuantities,
-      qtyAtSite: asset.siteQuantities?.[site.id],
-      hasLogs,
-      hasSiteQuantity,
-      shouldShow
-    });
-    
-    // Show consumable if it has logs OR current site quantity
-    // This ensures consumables with historical usage remain visible even if exhausted
-    return shouldShow;
-  });
-  
-  console.log('🔍 DEBUG: Filtered site consumables count:', siteConsumables.length);
+  const siteConsumables = assets.filter(asset =>
+    asset.type === 'consumable' && (
+      (asset.siteQuantities && asset.siteQuantities[site.id] !== undefined) ||
+      consumableLogs.some(log => String(log.consumableId) === String(asset.id) && String(log.siteId) === String(site.id))
+    )
+  );
 
   const handleLogUsage = (consumable: Asset) => {
     setSelectedConsumable(consumable);
+    setSelectedDate(new Date()); // Reset to today's date
     setLogForm({
       quantityUsed: "",
       usedFor: "",
@@ -230,7 +203,7 @@ export const ConsumablesSection = ({
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {siteConsumables.map((consumable) => {
-              const currentQty = consumable.siteQuantities?.[site.id] ?? 0;
+              const currentQty = consumable.siteQuantities![site.id];
               const totalUsed = getTotalUsed(consumable.id);
               const logs = getConsumableLogs(consumable.id);
               
