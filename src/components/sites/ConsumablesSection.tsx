@@ -59,7 +59,7 @@ export const ConsumablesSection = ({
   // Filter consumables at the site (INCLUDING depleted/zero and historical via logs)
   const siteConsumables = assets.filter(asset =>
     asset.type === 'consumable' && (
-      (asset.siteQuantities && asset.siteQuantities[site.id] !== undefined) ||
+      (asset.siteQuantities && asset.siteQuantities[String(site.id)] !== undefined) ||
       consumableLogs.some(log => String(log.consumableId) === String(asset.id) && String(log.siteId) === String(site.id))
     )
   );
@@ -105,7 +105,7 @@ export const ConsumablesSection = ({
       return;
     }
 
-    const currentQuantity = selectedConsumable.siteQuantities?.[site.id] || 0;
+    const currentQuantity = selectedConsumable.siteQuantities?.[String(site.id)] || 0;
     if (quantityUsed > currentQuantity) {
       toast({
         title: "Insufficient Quantity",
@@ -168,7 +168,7 @@ export const ConsumablesSection = ({
 
   const getTotalUsed = (consumableId: string) => {
     return consumableLogs
-      .filter(log => log.consumableId === consumableId && log.siteId === site.id)
+      .filter(log => String(log.consumableId) === String(consumableId) && String(log.siteId) === String(site.id))
       .reduce((sum, log) => sum + log.quantityUsed, 0);
   };
 
@@ -203,7 +203,7 @@ export const ConsumablesSection = ({
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {siteConsumables.map((consumable) => {
-              const currentQty = consumable.siteQuantities![site.id];
+              const currentQty = consumable.siteQuantities![String(site.id)] || 0;
               const totalUsed = getTotalUsed(consumable.id);
               const logs = getConsumableLogs(consumable.id);
               
@@ -283,7 +283,7 @@ export const ConsumablesSection = ({
           <DialogHeader>
             <DialogTitle>Log Consumable Usage</DialogTitle>
             <DialogDescription>
-              {selectedConsumable?.name} - {selectedConsumable?.siteQuantities?.[site.id]} {selectedConsumable?.unitOfMeasurement} available
+              {selectedConsumable?.name} - {selectedConsumable?.siteQuantities?.[String(site.id)] || 0} {selectedConsumable?.unitOfMeasurement} available
             </DialogDescription>
           </DialogHeader>
 

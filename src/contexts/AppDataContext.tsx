@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { QuickCheckout, Site, CompanySettings as CompanySettingsType, Employee, SiteTransaction, Vehicle } from '@/types/asset';
 import { EquipmentLog } from '@/types/equipment';
+import { ConsumableUsageLog } from '@/types/consumable';
 import { logger } from '@/lib/logger';
 
 interface AppDataContextType {
@@ -11,6 +12,7 @@ interface AppDataContextType {
   companySettings: CompanySettingsType;
   siteTransactions: SiteTransaction[];
   equipmentLogs: EquipmentLog[];
+  consumableLogs: ConsumableUsageLog[];
   setQuickCheckouts: React.Dispatch<React.SetStateAction<QuickCheckout[]>>;
   setEmployees: React.Dispatch<React.SetStateAction<Employee[]>>;
   setVehicles: React.Dispatch<React.SetStateAction<Vehicle[]>>;
@@ -18,6 +20,7 @@ interface AppDataContextType {
   setCompanySettings: React.Dispatch<React.SetStateAction<CompanySettingsType>>;
   setSiteTransactions: React.Dispatch<React.SetStateAction<SiteTransaction[]>>;
   setEquipmentLogs: React.Dispatch<React.SetStateAction<EquipmentLog[]>>;
+  setConsumableLogs: React.Dispatch<React.SetStateAction<ConsumableUsageLog[]>>;
   refreshAllData: () => Promise<void>;
 }
 
@@ -39,6 +42,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [companySettings, setCompanySettings] = useState<CompanySettingsType>({} as CompanySettingsType);
   const [siteTransactions, setSiteTransactions] = useState<SiteTransaction[]>([]);
   const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
+  const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
 
   const loadQuickCheckouts = useCallback(async () => {
     if (window.db) {
@@ -140,6 +144,22 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, []);
 
+  const loadConsumableLogs = useCallback(async () => {
+    if (window.db) {
+      try {
+        const logs = await window.db.getConsumableLogs();
+        setConsumableLogs(logs.map((item: any) => ({
+          ...item,
+          date: new Date(item.date),
+          createdAt: new Date(item.created_at || item.createdAt),
+          updatedAt: new Date(item.updated_at || item.updatedAt)
+        })));
+      } catch (error) {
+        logger.error('Failed to load consumable logs from database', error);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     loadQuickCheckouts();
     loadEmployees();
@@ -148,7 +168,8 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     loadCompanySettings();
     loadSiteTransactions();
     loadEquipmentLogs();
-  }, [loadQuickCheckouts, loadEmployees, loadVehicles, loadSites, loadCompanySettings, loadSiteTransactions, loadEquipmentLogs]);
+    loadConsumableLogs();
+  }, [loadQuickCheckouts, loadEmployees, loadVehicles, loadSites, loadCompanySettings, loadSiteTransactions, loadEquipmentLogs, loadConsumableLogs]);
 
   const refreshAllData = async () => {
     await Promise.all([
@@ -158,7 +179,8 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       loadSites(),
       loadCompanySettings(),
       loadSiteTransactions(),
-      loadEquipmentLogs()
+      loadEquipmentLogs(),
+      loadConsumableLogs()
     ]);
   };
 
@@ -171,6 +193,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       companySettings,
       siteTransactions,
       equipmentLogs,
+      consumableLogs,
       setQuickCheckouts,
       setEmployees,
       setVehicles,
@@ -178,6 +201,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setCompanySettings,
       setSiteTransactions,
       setEquipmentLogs,
+      setConsumableLogs,
       refreshAllData
     }}>
       {children}
