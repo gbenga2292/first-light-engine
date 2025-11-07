@@ -57,12 +57,30 @@ export const ConsumablesSection = ({
   });
 
   // Filter consumables at the site (INCLUDING depleted/zero and historical via logs)
-  const siteConsumables = assets.filter(asset =>
-    asset.type === 'consumable' && (
-      (asset.siteQuantities && asset.siteQuantities[String(site.id)] !== undefined) ||
-      consumableLogs.some(log => String(log.consumableId) === String(asset.id) && String(log.siteId) === String(site.id))
-    )
-  );
+  const siteConsumables = assets.filter(asset => {
+    const isConsumable = asset.type === 'consumable';
+    const hasSiteQty = asset.siteQuantities && asset.siteQuantities[String(site.id)] !== undefined;
+    const hasLogs = consumableLogs.some(log => String(log.consumableId) === String(asset.id) && String(log.siteId) === String(site.id));
+    
+    console.log('Consumable filter debug:', {
+      assetName: asset.name,
+      assetId: asset.id,
+      assetType: asset.type,
+      isConsumable,
+      siteId: site.id,
+      siteQuantities: asset.siteQuantities,
+      hasSiteQty,
+      hasLogs,
+      totalLogsForAsset: consumableLogs.filter(log => String(log.consumableId) === String(asset.id)).length,
+      logsForThisSite: consumableLogs.filter(log => String(log.consumableId) === String(asset.id) && String(log.siteId) === String(site.id)).length
+    });
+    
+    return isConsumable && (hasSiteQty || hasLogs);
+  });
+
+  console.log('Total consumables at site:', siteConsumables.length);
+  console.log('All consumable logs:', consumableLogs);
+  console.log('Site ID:', site.id);
 
   const handleLogUsage = (consumable: Asset) => {
     setSelectedConsumable(consumable);
