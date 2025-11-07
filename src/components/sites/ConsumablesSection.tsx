@@ -82,8 +82,19 @@ export const ConsumablesSection = ({
   });
 
   console.log('✅ Total consumables at site:', siteConsumables.length);
-  console.log('📊 All consumable logs:', consumableLogs);
-  console.log('🏗️ Site ID:', site.id);
+  console.log('📊 All consumable logs:', consumableLogs.map(log => ({
+    id: log.id,
+    consumableId: log.consumableId,
+    consumableName: log.consumableName,
+    siteId: log.siteId,
+    quantityUsed: log.quantityUsed
+  })));
+  console.log('🏗️ Site ID:', site.id, 'Type:', typeof site.id);
+  console.log('🔢 All assets with type consumable:', assets.filter(a => a.type === 'consumable').map(a => ({
+    id: a.id,
+    name: a.name,
+    siteQuantities: a.siteQuantities
+  })));
 
   const handleLogUsage = (consumable: Asset) => {
     setSelectedConsumable(consumable);
