@@ -779,6 +779,7 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
       setEditingUserId(userId);
       setEditUserName(user.name);
       setEditUserUsername(user.username);
+      setEditUserPassword('');
       setEditUserRole(user.role);
       setEditUserEmail(user.email || '');
     }
@@ -787,12 +788,19 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
   const handleSaveUserEdit = async () => {
     if (!editingUserId || !editUserName.trim() || !editUserUsername.trim()) return;
 
-    const result = await updateUser(editingUserId, {
+    const updateData: any = {
       name: editUserName.trim(),
       username: editUserUsername.trim(),
       role: editUserRole,
       email: editUserEmail.trim() || undefined
-    });
+    };
+
+    // Only include password if it's been entered
+    if (editUserPassword.trim()) {
+      updateData.password = editUserPassword.trim();
+    }
+
+    const result = await updateUser(editingUserId, updateData);
 
     if (result.success) {
       const fetchedUsers = await getUsers();
@@ -800,6 +808,7 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
       setEditingUserId(null);
       setEditUserName('');
       setEditUserUsername('');
+      setEditUserPassword('');
       setEditUserRole('staff');
       setEditUserEmail('');
       toast({
@@ -837,6 +846,7 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
     setEditingUserId(null);
     setEditUserName('');
     setEditUserUsername('');
+    setEditUserPassword('');
     setEditUserRole('staff');
     setEditUserEmail('');
   };
@@ -988,6 +998,13 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
                                 value={editUserUsername}
                                 onChange={(e) => setEditUserUsername(e.target.value)}
                                 placeholder="Username"
+                                className="flex-1"
+                              />
+                              <Input
+                                type="password"
+                                value={editUserPassword}
+                                onChange={(e) => setEditUserPassword(e.target.value)}
+                                placeholder="New Password (optional)"
                                 className="flex-1"
                               />
                               <Select value={editUserRole} onValueChange={(value: UserRole) => setEditUserRole(value)}>

@@ -9,7 +9,6 @@ import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "./contexts/AuthContext";
 import { AssetsProvider } from "./contexts/AssetsContext";
 import { WaybillsProvider } from "./contexts/WaybillsContext";
-import { AppDataProvider } from "./contexts/AppDataContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Index from "./pages/Index";
@@ -64,24 +63,22 @@ const App = () => {
           <AuthProvider>
             <AssetsProvider>
               <WaybillsProvider>
-                <AppDataProvider>
-                  <TooltipProvider>
-                    <Toaster />
-                    <Sonner />
-                    <HashRouter>
-                      <Routes>
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/" element={
-                          <ProtectedRoute>
-                            <Index />
-                          </ProtectedRoute>
-                        } />
-                        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                        <Route path="*" element={<NotFound />} />
-                      </Routes>
-                    </HashRouter>
-                  </TooltipProvider>
-                </AppDataProvider>
+                <TooltipProvider>
+                  <Toaster />
+                  <Sonner />
+                  <HashRouter>
+                    <Routes>
+                      <Route path="/login" element={<Login />} />
+                      <Route path="/" element={
+                        <ProtectedRoute>
+                          <Index />
+                        </ProtectedRoute>
+                      } />
+                      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </HashRouter>
+                </TooltipProvider>
               </WaybillsProvider>
             </AssetsProvider>
           </AuthProvider>
