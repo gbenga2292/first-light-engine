@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { AIAssistantService, AIResponse, AIIntent } from '@/services/aiAssistant';
+import { AIAssistantService, AIResponse, AIIntent, ActionExecutionContext } from '@/services/aiAssistant';
 import { useAuth } from './AuthContext';
+import { useAssets } from './AssetsContext';
 import { Asset, Site, Employee, Vehicle } from '@/types/asset';
+import { useToast } from '@/hooks/use-toast';
 
 export interface ChatMessage {
   id: string;
@@ -49,13 +51,62 @@ export const AIAssistantProvider: React.FC<AIAssistantProviderProps> = ({
   onAction
 }) => {
   const { currentUser } = useAuth();
+  const { addAsset } = useAssets();
+  const { toast } = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [aiService, setAiService] = useState<AIAssistantService | null>(null);
 
-  // Initialize AI service when user role is available
+  // Initialize AI service with execution context
   useEffect(() => {
     if (currentUser?.role) {
+      const executionContext: ActionExecutionContext = {
+        addAsset: async (assetData) => {
+          await addAsset(assetData as any);
+          toast({
+            title: "Asset Added",
+            description: `${assetData.name} has been added to inventory.`,
+          });
+          return { ...assetData, id: Date.now().toString() } as Asset;
+        },
+        createWaybill: async (waybillData) => {
+          // Trigger the onAction callback to open waybill form
+          if (onAction) {
+            onAction({
+              type: 'open_form',
+              data: { formType: 'waybill', prefillData: waybillData }
+            });
+          }
+          return waybillData;
+        },
+        processReturn: async (returnData) => {
+          // Trigger the onAction callback to open return form
+          if (onAction) {
+            onAction({
+              type: 'open_form',
+              data: { formType: 'return', prefillData: returnData }
+            });
+          }
+          return returnData;
+        },
+        createSite: async (siteData) => {
+          // Trigger the onAction callback to open site form
+          if (onAction) {
+            onAction({
+              type: 'open_form',
+              data: { formType: 'site', prefillData: siteData }
+            });
+          }
+          return siteData;
+        },
+        updateAsset: async (id, updates) => {
+          // This would need to be implemented in AssetsContext
+          const asset = assets.find(a => a.id === id);
+          if (!asset) throw new Error('Asset not found');
+          return { ...asset, ...updates };
+        }
+      };
+
       const service = new AIAssistantService(
         currentUser.role,
         assets,
@@ -63,9 +114,12 @@ export const AIAssistantProvider: React.FC<AIAssistantProviderProps> = ({
         employees,
         vehicles
       );
+      
+      // Set execution context separately
+      service.setExecutionContext(executionContext);
       setAiService(service);
     }
-  }, [currentUser?.role]);
+  }, [currentUser?.role, assets, sites, employees, vehicles, addAsset, onAction]);
 
   // Update AI service context when data changes
   useEffect(() => {
@@ -102,9 +156,18 @@ export const AIAssistantProvider: React.FC<AIAssistantProviderProps> = ({
       };
       setMessages(prev => [...prev, assistantMessage]);
 
-      // Auto-execute if action is ready
-      if (response.success && response.suggestedAction) {
-        // Don't auto-execute, let user trigger via button
+      // Show execution result if available
+      if (response.executionResult?.success) {
+        toast({
+          title: "Action Executed",
+          description: response.message,
+        });
+      } else if (response.executionResult?.error) {
+        toast({
+          title: "Execution Failed",
+          description: response.executionResult.error,
+          variant: "destructive"
+        });
       }
     } catch (error) {
       const errorMessage: ChatMessage = {
