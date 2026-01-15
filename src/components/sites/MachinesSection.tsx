@@ -19,12 +19,14 @@ import { SiteMachineAnalytics } from "./SiteMachineAnalytics";
 import { SiteWideMachineAnalytics } from "./SiteWideMachineAnalytics";
 import { useAuth } from "@/contexts/AuthContext";
 import { logActivity } from "@/utils/activityLogger";
+import { createDefaultOperationalLog, applyDefaultTemplate, calculateDieselRefill, getDieselOverdueDays } from "@/utils/defaultLogTemplate";
 
 interface MachinesSectionProps {
   site: Site;
   assets: Asset[];
   equipmentLogs: EquipmentLogType[];
   employees: Employee[];
+  waybills: any[];
   companySettings?: any;
   onAddEquipmentLog: (log: EquipmentLogType) => void;
   onUpdateEquipmentLog: (log: EquipmentLogType) => void;
@@ -35,6 +37,7 @@ export const MachinesSection = ({
   assets,
   equipmentLogs,
   employees,
+  waybills,
   companySettings,
   onAddEquipmentLog,
   onUpdateEquipmentLog
@@ -215,6 +218,93 @@ export const MachinesSection = ({
       .map(log => log.date);
   };
 
+  const getEquipmentArrivalDate = (equipmentId: string): Date | null => {
+    // Find the first waybill where this equipment was sent to this site
+    const relevantWaybills = waybills.filter(
+      waybill =>
+        String(waybill.siteId) === String(site.id) &&
+        waybill.items.some(item => String(item.assetId) === String(equipmentId))
+    );
+
+    if (relevantWaybills.length === 0) return null;
+
+    // Sort by issue date and return the earliest
+    const sortedWaybills = relevantWaybills.sort(
+      (a, b) => new Date(a.issueDate).getTime() - new Date(b.issueDate).getTime()
+    );
+
+    return new Date(sortedWaybills[0].issueDate);
+  };
+
+  const getMissedLogsCount = (equipmentId: string): number => {
+    const arrivalDate = getEquipmentArrivalDate(equipmentId);
+    if (!arrivalDate) return 0;
+
+    // Count dates from arrival to today that should have logs
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    let missedCount = 0;
+    let currentDate = new Date(arrivalDate);
+    currentDate.setHours(0, 0, 0, 0);
+
+    const loggedDates = getLoggedDatesForEquipmentAndSite(equipmentId).map(date => {
+      const d = new Date(date);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    });
+
+    while (currentDate <= today) {
+      const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+      if (!loggedDates.includes(dateStr)) {
+        missedCount++;
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return missedCount;
+  };
+
+  const handleQuickLog = (equipment: Asset) => {
+    // Check if there's already a log for today
+    const today = new Date();
+    const existingLog = equipmentLogs.find(log =>
+      log.equipmentId === equipment.id &&
+      format(log.date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')
+    );
+
+    // Calculate diesel refill based on schedule (60L every 4 days)
+    const dieselRefill = calculateDieselRefill(equipmentLogs, equipment.id);
+
+    if (existingLog) {
+      // Update existing log with default template
+      const defaultTemplate = createDefaultOperationalLog(undefined, dieselRefill);
+      const updatedLog = applyDefaultTemplate(existingLog, defaultTemplate);
+      onUpdateEquipmentLog(updatedLog);
+      logActivity({
+        action: 'update',
+        entity: 'equipment_log',
+        entityId: equipment.id,
+        details: `Quick log applied to ${equipment.name} at ${site.name} on ${format(today, 'MMM dd, yyyy')} - Default operational template${dieselRefill ? ` with ${dieselRefill}L diesel refill` : ''}`
+      });
+    } else {
+      // Create new log with default template
+      const defaultTemplate = createDefaultOperationalLog(undefined, dieselRefill);
+      const newLog = applyDefaultTemplate({
+        equipmentId: equipment.id,
+        equipmentName: equipment.name,
+        siteId: site.id,
+        date: today
+      }, defaultTemplate);
+      onAddEquipmentLog(newLog);
+      logActivity({
+        action: 'create',
+        entity: 'equipment_log',
+        entityId: equipment.id,
+        details: `Quick log created for ${equipment.name} at ${site.name} on ${format(today, 'MMM dd, yyyy')} - Default operational template${dieselRefill ? ` with ${dieselRefill}L diesel refill` : ''}`
+      });
+    }
+  };
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-4">
       <div className="flex items-center justify-between">
@@ -256,13 +346,21 @@ export const MachinesSection = ({
                 <div className="text-sm text-muted-foreground">
                   Serial: {equipment.id}
                 </div>
+                {(() => {
+                  const overdueDays = getDieselOverdueDays(equipmentLogs, equipment.id);
+                  return overdueDays > 0 ? (
+                    <div className="text-xs text-orange-600 font-medium">
+                      ⚠️ Diesel refill overdue by {overdueDays} day{overdueDays > 1 ? 's' : ''}
+                    </div>
+                  ) : null;
+                })()}
                 <div className="flex gap-2">
                   <Button
                     onClick={() => handleEquipmentSelect(equipment)}
                     variant="outline"
                     size="sm"
                     className="flex-1"
-                    disabled={!hasPermission('print_documents')}
+                    disabled={!hasPermission('write_assets')}
                   >
                     <CalendarIcon className="h-4 w-4 mr-2" />
                     Month
@@ -314,12 +412,38 @@ export const MachinesSection = ({
       <Dialog open={showLogDialog} onOpenChange={setShowLogDialog}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              Log Entry - {selectedEquipment?.name}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedDate && format(selectedDate, 'PPP')}
-            </DialogDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>
+                  Log Entry - {selectedEquipment?.name}
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedDate && format(selectedDate, 'PPP')}
+                </DialogDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const defaultLog = createDefaultOperationalLog(
+                    employees.find(e => e.id === logForm.supervisorOnSite)?.name,
+                    selectedEquipment ? calculateDieselRefill(equipmentLogs, selectedEquipment.id) : undefined
+                  );
+                  setLogForm({
+                    active: defaultLog.active,
+                    downtimeEntries: defaultLog.downtimeEntries,
+                    maintenanceDetails: defaultLog.maintenanceDetails || "",
+                    dieselEntered: defaultLog.dieselEntered?.toString() || "",
+                    supervisorOnSite: defaultLog.supervisorOnSite || "",
+                    clientFeedback: defaultLog.clientFeedback || "",
+                    issuesOnSite: defaultLog.issuesOnSite || ""
+                  });
+                }}
+                className="shrink-0"
+              >
+                Quick Fill
+              </Button>
+            </div>
           </DialogHeader>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -331,20 +455,39 @@ export const MachinesSection = ({
                 selected={selectedDate}
                 onSelect={(date) => date && handleDateSelect(date)}
                 modifiers={{
-                  logged: selectedEquipment ? getLoggedDatesForEquipmentAndSite(selectedEquipment.id) : []
+                  logged: selectedEquipment ? getLoggedDatesForEquipmentAndSite(selectedEquipment.id) : [],
+                  arrival: selectedEquipment && getEquipmentArrivalDate(selectedEquipment.id)
+                    ? [getEquipmentArrivalDate(selectedEquipment.id) as Date]
+                    : []
                 }}
                 modifiersStyles={{
                   logged: {
                     backgroundColor: 'hsl(var(--primary))',
                     color: 'white',
                     fontWeight: 'bold'
+                  },
+                  arrival: {
+                    backgroundColor: 'hsl(34 89% 72%)',
+                    color: '#000',
+                    fontWeight: 'bold',
+                    textDecoration: 'underline'
                   }
                 }}
                 className="rounded-md border"
               />
-              <p className="text-xs text-muted-foreground mt-2">
-                Blue dates have existing logs
-              </p>
+              <div className="space-y-1 mt-2">
+                <p className="text-xs text-muted-foreground">
+                  <span style={{color: 'hsl(var(--primary))', fontWeight: 'bold'}}>■</span> Blue dates have existing logs
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  <span style={{color: 'hsl(34 89% 72%)', fontWeight: 'bold'}}>■</span> Orange date = equipment arrived at site
+                </p>
+                {selectedEquipment && getEquipmentArrivalDate(selectedEquipment.id) && (
+                  <p className="text-xs font-medium text-orange-700 mt-2">
+                    ⚠️ {getMissedLogsCount(selectedEquipment.id)} missed log{getMissedLogsCount(selectedEquipment.id) !== 1 ? 's' : ''} since arrival
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Form on the Right */}

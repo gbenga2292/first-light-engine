@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { AIAssistantService, AIResponse, AIIntent, ActionExecutionContext } from '@/services/aiAssistant';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { AIResponse, AIIntent, AIAssistantService } from '@/services/aiAssistant';
 import { useAuth } from './AuthContext';
 import { useAssets } from './AssetsContext';
 import { Asset, Site, Employee, Vehicle } from '@/types/asset';
 import { useToast } from '@/hooks/use-toast';
+import { logger } from '@/lib/logger';
 
 export interface ChatMessage {
   id: string;
@@ -40,6 +41,7 @@ interface AIAssistantProviderProps {
   employees: Employee[];
   vehicles: Vehicle[];
   onAction?: (action: AIResponse['suggestedAction']) => void;
+  aiEnabled?: boolean;
 }
 
 export const AIAssistantProvider: React.FC<AIAssistantProviderProps> = ({
@@ -48,90 +50,124 @@ export const AIAssistantProvider: React.FC<AIAssistantProviderProps> = ({
   sites,
   employees,
   vehicles,
-  onAction
+  onAction,
+  aiEnabled = true
 }) => {
   const { currentUser } = useAuth();
-  const { addAsset } = useAssets();
+  const { addAsset, updateAsset } = useAssets();
   const { toast } = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [aiService, setAiService] = useState<AIAssistantService | null>(null);
+  const aiServiceRef = useRef<AIAssistantService | null>(null);
 
-  // Initialize AI service with execution context
+  // Initialize AI service
   useEffect(() => {
-    if (currentUser?.role) {
-      const executionContext: ActionExecutionContext = {
+    if (!aiServiceRef.current && currentUser) {
+      aiServiceRef.current = new AIAssistantService(
+        currentUser.role,
+        assets,
+        sites,
+        employees,
+        vehicles,
+        (error) => {
+          // Only show toast for non-API key related errors to reduce noise
+          if (!error.includes('API key') && !error.includes('Authentication failed')) {
+            logger.warn('AI Service Error', { data: { error } });
+            toast({
+              title: "AI Assistant",
+              description: error,
+              variant: "default"
+            });
+          } else {
+            logger.warn('AI Service Error (suppressed)', { data: { error } });
+          }
+        }
+      );
+
+      // Set execution context for actual action execution
+      aiServiceRef.current.setExecutionContext({
         addAsset: async (assetData) => {
-          await addAsset(assetData as any);
-          toast({
-            title: "Asset Added",
-            description: `${assetData.name} has been added to inventory.`,
-          });
-          return { ...assetData, id: Date.now().toString() } as Asset;
+          await addAsset(assetData);
+          // Return the asset with a temporary ID (the actual asset will be in the database)
+          return { ...assetData, id: Date.now().toString(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as Asset;
         },
         createWaybill: async (waybillData) => {
-          // Trigger the onAction callback to open waybill form
+          // This will be handled through onAction callback
           if (onAction) {
             onAction({
               type: 'open_form',
-              data: { formType: 'waybill', prefillData: waybillData }
+              data: { formType: 'create_waybill', prefillData: waybillData }
             });
           }
           return waybillData;
         },
+        openAnalytics: async (data) => {
+          if (onAction) {
+            onAction({
+              type: 'execute_action',
+              data: { action: 'open_analytics', ...data }
+            });
+          }
+          return { success: true, message: 'Opening analytics dashboard' };
+        },
+        viewWaybill: async (id) => {
+          if (onAction) {
+            onAction({
+              type: 'execute_action',
+              data: { action: 'view_waybill', waybillId: id }
+            });
+          }
+          return { success: true, message: `Opening waybill ${id}` };
+        },
         processReturn: async (returnData) => {
-          // Trigger the onAction callback to open return form
           if (onAction) {
             onAction({
               type: 'open_form',
-              data: { formType: 'return', prefillData: returnData }
+              data: { formType: 'process_return', prefillData: returnData }
             });
           }
           return returnData;
         },
         createSite: async (siteData) => {
-          // Trigger the onAction callback to open site form
           if (onAction) {
             onAction({
               type: 'open_form',
-              data: { formType: 'site', prefillData: siteData }
+              data: { formType: 'create_site', prefillData: siteData }
             });
           }
           return siteData;
         },
         updateAsset: async (id, updates) => {
-          // This would need to be implemented in AssetsContext
-          const asset = assets.find(a => a.id === id);
-          if (!asset) throw new Error('Asset not found');
-          return { ...asset, ...updates };
+          // Use the database API to update asset via Context/DataService
+          await updateAsset(id, updates as any);
+          return { ...updates, id } as Asset;
         }
-      };
+      });
 
-      const service = new AIAssistantService(
-        currentUser.role,
-        assets,
-        sites,
-        employees,
-        vehicles
-      );
-      
-      // Set execution context separately
-      service.setExecutionContext(executionContext);
-      setAiService(service);
+      logger.info('AI Assistant Service initialized with execution context');
     }
-  }, [currentUser?.role, assets, sites, employees, vehicles, addAsset, onAction]);
+  }, [currentUser, assets, sites, employees, vehicles, addAsset, onAction]);
 
-  // Update AI service context when data changes
+  // Update context when data changes
   useEffect(() => {
-    if (aiService) {
-      aiService.updateContext(assets, sites, employees, vehicles);
+    if (aiServiceRef.current) {
+      aiServiceRef.current.updateContext(assets, sites, employees, vehicles);
     }
-  }, [assets, sites, employees, vehicles, aiService]);
+  }, [assets, sites, employees, vehicles]);
 
   const sendMessage = async (content: string) => {
-    if (!content.trim() || !aiService) return;
+    // STRICT DISABLE CHECK
+    if (!aiEnabled) {
+      toast({
+        title: "AI Disabled",
+        description: "AI Assistant is currently disabled.",
+        variant: "destructive"
+      });
+      return;
+    }
 
-    // Add user message
+    if (!content.trim() || !aiServiceRef.current) return;
+
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
@@ -142,10 +178,9 @@ export const AIAssistantProvider: React.FC<AIAssistantProviderProps> = ({
     setIsProcessing(true);
 
     try {
-      // Process with AI
-      const response = await aiService.processInput(content);
+      // Process input through the AI service
+      const response: AIResponse = await aiServiceRef.current.processInput(content);
 
-      // Add assistant response
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -154,21 +189,34 @@ export const AIAssistantProvider: React.FC<AIAssistantProviderProps> = ({
         intent: response.intent,
         suggestedAction: response.suggestedAction
       };
+
       setMessages(prev => [...prev, assistantMessage]);
 
-      // Show execution result if available
-      if (response.executionResult?.success) {
-        toast({
-          title: "Action Executed",
-          description: response.message,
-        });
-      } else if (response.executionResult?.error) {
-        toast({
-          title: "Execution Failed",
-          description: response.executionResult.error,
-          variant: "destructive"
-        });
+      // Execute suggested action if provided
+      if (response.suggestedAction && onAction) {
+        if (response.suggestedAction.type === 'open_form') {
+          onAction(response.suggestedAction);
+        } else if (response.suggestedAction.type === 'execute_action') {
+          onAction(response.suggestedAction);
+        }
       }
+
+      // Show success/error toast for execution results
+      if (response.executionResult) {
+        if (response.executionResult.success) {
+          toast({
+            title: "Action completed",
+            description: response.message,
+          });
+        } else {
+          toast({
+            title: "Action failed",
+            description: response.executionResult.error || "An error occurred",
+            variant: "destructive"
+          });
+        }
+      }
+
     } catch (error) {
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
@@ -177,6 +225,12 @@ export const AIAssistantProvider: React.FC<AIAssistantProviderProps> = ({
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
+
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: "destructive"
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -198,8 +252,8 @@ export const AIAssistantProvider: React.FC<AIAssistantProviderProps> = ({
     newEmployees: Employee[],
     newVehicles: Vehicle[]
   ) => {
-    if (aiService) {
-      aiService.updateContext(newAssets, newSites, newEmployees, newVehicles);
+    if (aiServiceRef.current) {
+      aiServiceRef.current.updateContext(newAssets, newSites, newEmployees, newVehicles);
     }
   };
 

@@ -4,9 +4,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Asset, CompanySettings } from "@/types/asset";
-import { FileText, Download } from "lucide-react";
+import { FileText, Download, FileSpreadsheet } from "lucide-react";
 import { generateUnifiedReport } from "@/utils/unifiedReportGenerator";
-
+import * as XLSX from 'xlsx';
 interface InventoryReportProps {
   assets: Asset[];
   companySettings?: CompanySettings;
@@ -17,9 +17,9 @@ const defaultCompanySettings: CompanySettings = {
   logo: "/logo.png",
   address: "7 Musiliu Smith St, formerly Panti Street, Adekunle, Lagos 101212, Lagos",
   phone: "+2349030002182",
-  email: "",
+  email: "info@dewaterconstruct.com",
   website: "https://dewaterconstruct.com/",
-  currency: "USD",
+  currency: "NGN",
   dateFormat: "MM/dd/yyyy",
   theme: "light",
   notifications: {
@@ -28,64 +28,112 @@ const defaultCompanySettings: CompanySettings = {
   },
 };
 
+
+// Exporting for external usage
+export const exportAssetsToPDF = async (
+  assets: Asset[],
+  companySettings: CompanySettings = defaultCompanySettings,
+  title: string = "Inventory Report"
+) => {
+  // Merge provided companySettings with defaults
+  const effectiveCompanySettings: CompanySettings = {
+    ...defaultCompanySettings,
+    ...(companySettings ? Object.fromEntries(
+      Object.entries(companySettings).filter(([_, v]) => v !== undefined && v !== null && v !== '')
+    ) : {})
+  };
+
+  // Calculate summary statistics
+  const totalAssets = assets.length;
+  const totalQuantity = assets.reduce((sum, asset) => sum + asset.quantity, 0);
+  const totalValue = assets.reduce((sum, asset) => sum + (asset.cost * asset.quantity), 0);
+  const activeAssets = assets.filter(a => a.status === 'active').length;
+  const equipmentCount = assets.filter(a => a.type === 'equipment').length;
+  const consumablesCount = assets.filter(a => a.type === 'consumable').length;
+
+  // Transform data for unified generator
+  const reportData = assets.map(asset => ({
+    name: asset.name,
+    quantity: asset.quantity,
+    unit: asset.unitOfMeasurement,
+    category: asset.category,
+    type: asset.type,
+    location: asset.location || '-'
+  }));
+
+  await generateUnifiedReport({
+    title: 'Inventory Report',
+    subtitle: title,
+    reportType: 'INVENTORY',
+    companySettings: effectiveCompanySettings,
+    columns: [
+      { header: 'Name', dataKey: 'name', width: 45 },
+      { header: 'Qty', dataKey: 'quantity', width: 18 },
+      { header: 'Unit', dataKey: 'unit', width: 18 },
+      { header: 'Category', dataKey: 'category', width: 30 },
+      { header: 'Type', dataKey: 'type', width: 30 },
+      { header: 'Location', dataKey: 'location', width: 35 }
+    ],
+    data: reportData,
+    summaryStats: [
+      { label: 'Total Assets', value: totalAssets },
+      { label: 'Total Quantity', value: totalQuantity },
+      { label: 'Total Value', value: `NGN ${totalValue.toFixed(2)}` },
+      { label: 'Active Assets', value: activeAssets },
+      { label: 'Equipment Items', value: equipmentCount },
+      { label: 'Consumables', value: consumablesCount }
+    ]
+  });
+};
+
 export const InventoryReport = ({ assets, companySettings }: InventoryReportProps) => {
   const [loading, setLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState("all");
   const [previewData, setPreviewData] = useState<{ assets: Asset[]; title: string } | null>(null);
 
-  // Use provided companySettings or default to company information
-  const effectiveCompanySettings = companySettings || defaultCompanySettings;
+  // Merge provided companySettings with defaults
+  const effectiveCompanySettings: CompanySettings = {
+    ...defaultCompanySettings,
+    ...(companySettings ? Object.fromEntries(
+      Object.entries(companySettings).filter(([_, v]) => v !== undefined && v !== null && v !== '')
+    ) : {})
+  };
 
-  const generateReport = (filteredAssets: Asset[], title: string) => {
+  const generateReport = async (filteredAssets: Asset[], title: string) => {
     setLoading(true);
-
-    // Calculate summary statistics
-    const totalAssets = filteredAssets.length;
-    const totalQuantity = filteredAssets.reduce((sum, asset) => sum + asset.quantity, 0);
-    const totalValue = filteredAssets.reduce((sum, asset) => sum + (asset.cost * asset.quantity), 0);
-    const activeAssets = filteredAssets.filter(a => a.status === 'active').length;
-    const equipmentCount = filteredAssets.filter(a => a.type === 'equipment').length;
-    const consumablesCount = filteredAssets.filter(a => a.type === 'consumable').length;
-
-    // Transform data for unified generator
-    const reportData = filteredAssets.map(asset => ({
-      name: asset.name,
-      quantity: asset.quantity,
-      unit: asset.unitOfMeasurement,
-      category: asset.category,
-      type: asset.type,
-      location: asset.location || '-',
-      description: asset.description || '-'
-    }));
-
-    generateUnifiedReport({
-      title: 'Inventory Report',
-      subtitle: title,
-      reportType: 'INVENTORY',
-      companySettings: effectiveCompanySettings,
-      orientation: 'landscape',
-      columns: [
-        { header: 'Name', dataKey: 'name', width: 40 },
-        { header: 'Quantity', dataKey: 'quantity', width: 20 },
-        { header: 'Unit', dataKey: 'unit', width: 20 },
-        { header: 'Category', dataKey: 'category', width: 25 },
-        { header: 'Type', dataKey: 'type', width: 25 },
-        { header: 'Location', dataKey: 'location', width: 30 },
-        { header: 'Description', dataKey: 'description', width: 50 }
-      ],
-      data: reportData,
-      summaryStats: [
-        { label: 'Total Assets', value: totalAssets },
-        { label: 'Total Quantity', value: totalQuantity },
-        { label: 'Total Value', value: `$${totalValue.toFixed(2)}` },
-        { label: 'Active Assets', value: activeAssets },
-        { label: 'Equipment Items', value: equipmentCount },
-        { label: 'Consumables', value: consumablesCount }
-      ]
-    });
-
+    await exportAssetsToPDF(filteredAssets, effectiveCompanySettings, title);
     setLoading(false);
+  };
+
+  const exportToExcel = (filteredAssets: Asset[], title: string) => {
+    // Export in the same format as the bulk import template
+    const excelData = [
+      ['Name', 'Description', 'Quantity', 'Unit of Measurement', 'Category', 'Type', 'Location', 'Service', 'Status', 'Condition', 'Cost'],
+      ...filteredAssets.map(asset => [
+        asset.name,
+        asset.description || '',
+        asset.quantity,
+        asset.unitOfMeasurement,
+        asset.category,
+        asset.type,
+        asset.location || '',
+        asset.service || '',
+        asset.status || 'active',
+        asset.condition || 'good',
+        asset.cost || 0
+      ])
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Assets');
+
+    // Generate filename with date
+    const date = new Date().toISOString().split('T')[0];
+    const filename = `${title.replace(/\s+/g, '_')}_${date}.xlsx`;
+
+    XLSX.writeFile(wb, filename);
   };
 
   const getFilter = (type: string) => {
@@ -173,7 +221,15 @@ export const InventoryReport = ({ assets, companySettings }: InventoryReportProp
                   ))}
                 </TableBody>
               </Table>
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => { exportToExcel(previewData.assets, previewData.title); }}
+                  disabled={loading}
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Download Excel
+                </Button>
                 <Button onClick={() => { generateReport(previewData.assets, previewData.title); setPreviewData(null); }} disabled={loading}>
                   <Download className="h-4 w-4 mr-2" />
                   Download PDF

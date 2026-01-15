@@ -101,6 +101,7 @@ async function initializeDatabase(dbPath) {
       table.string('condition').defaultTo('good');
       table.integer('missing_count').defaultTo(0);
       table.integer('damaged_count').defaultTo(0);
+      table.integer('used_count').defaultTo(0);
       table.integer('low_stock_level').defaultTo(10);
       table.integer('critical_stock_level').defaultTo(5);
       table.string('power_source');
@@ -148,6 +149,7 @@ async function initializeDatabase(dbPath) {
       table.integer('quantity').notNullable();
       table.dateTime('checkout_date').notNullable();
       table.integer('expected_return_days').notNullable();
+      table.integer('returned_quantity').defaultTo(0);
       table.string('status').defaultTo('outstanding');
       table.timestamps(true, true);
     });
@@ -226,9 +228,23 @@ async function initializeDatabase(dbPath) {
       table.string('theme').defaultTo('system');
       table.boolean('notifications_email').defaultTo(true);
       table.boolean('notifications_push').defaultTo(true);
+      table.text('ai_config'); // JSON string for AI config (remote settings)
       table.timestamps(true, true);
     });
     console.log('Created "company_settings" table.');
+
+    // Saved API Keys Table
+    await db.schema.createTable('saved_api_keys', (table) => {
+      table.increments('id').primary();
+      table.string('key_name').notNullable().unique(); // User-friendly name like "Work OpenAI"
+      table.string('provider').notNullable(); // 'openai', 'custom', etc.
+      table.text('api_key').notNullable(); // The actual API key
+      table.text('endpoint'); // Custom endpoint if applicable
+      table.string('model'); // Model name like 'gpt-3.5-turbo'
+      table.boolean('is_active').defaultTo(false); // Only one can be active
+      table.timestamps(true, true);
+    });
+    console.log('Created "saved_api_keys" table.');
 
     // Site Transactions Table
     await db.schema.createTable('site_transactions', (table) => {
@@ -262,6 +278,20 @@ async function initializeDatabase(dbPath) {
     });
     console.log('Created "activities" table.');
 
+    // Metrics Snapshots Table
+    await db.schema.createTable('metrics_snapshots', (table) => {
+      table.increments('id').primary();
+      table.date('snapshot_date').notNullable().unique();
+      table.integer('total_assets').defaultTo(0);
+      table.integer('total_quantity').defaultTo(0);
+      table.integer('outstanding_waybills').defaultTo(0);
+      table.integer('outstanding_checkouts').defaultTo(0);
+      table.integer('out_of_stock').defaultTo(0);
+      table.integer('low_stock').defaultTo(0);
+      table.timestamps(true, true);
+    });
+    console.log('Created "metrics_snapshots" table.');
+
 
     // --- Seed Data ---
 
@@ -281,10 +311,10 @@ async function initializeDatabase(dbPath) {
 
     // Seed default company settings
     await db('company_settings').insert({
-      company_name: 'Genesis Glow',
-      address: '123 Glow Street, Suite 100',
+      company_name: 'DCEL',
+      address: '123 Main Street, Suite 100',
       phone: '555-123-4567',
-      email: 'contact@genesisglow.com',
+      email: 'contact@dcel.com',
     });
     console.log('Seeded default company settings.');
 

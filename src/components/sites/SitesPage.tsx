@@ -23,6 +23,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { MachinesSection } from "./MachinesSection";
 import { ConsumablesSection } from "./ConsumablesSection";
 import { ConsumableUsageLog } from "@/types/consumable";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface SitesPageProps {
   sites: Site[];
@@ -58,7 +59,30 @@ interface SitesPageProps {
   aiPrefillData?: any;
 }
 
+const defaultCompanySettings: CompanySettings = {
+  companyName: "Dewatering Construction Etc Limited",
+  logo: "/logo.png",
+  address: "7 Musiliu Smith St, formerly Panti Street, Adekunle, Lagos 101212, Lagos",
+  phone: "+2349030002182",
+  email: "info@dewaterconstruct.com",
+  website: "https://dewaterconstruct.com/",
+  currency: "NGN",
+  dateFormat: "MM/dd/yyyy",
+  theme: "light",
+  notifications: {
+    email: true,
+    push: true,
+  },
+};
+
 export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transactions, equipmentLogs, consumableLogs, siteInventory, getSiteInventory, companySettings, onAddSite, onUpdateSite, onDeleteSite, onUpdateAsset, onCreateWaybill, onCreateReturnWaybill, onProcessReturn, onAddEquipmentLog, onUpdateEquipmentLog, onAddConsumableLog, onUpdateConsumableLog, aiPrefillData }: SitesPageProps) => {
+  // Merge provided companySettings with defaults, only using non-empty values from database
+  const effectiveCompanySettings: CompanySettings = {
+    ...defaultCompanySettings,
+    ...(companySettings ? Object.fromEntries(
+      Object.entries(companySettings).filter(([_, v]) => v !== undefined && v !== null && v !== '')
+    ) : {})
+  };
   const [showForm, setShowForm] = useState(false);
   const [editingSite, setEditingSite] = useState<Site | null>(null);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
@@ -85,6 +109,20 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
   const [siteFilter, setSiteFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const { isAuthenticated, hasPermission } = useAuth();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
+
+  // Load site filter from localStorage on component mount
+  useEffect(() => {
+    const savedFilter = localStorage.getItem('siteFilter');
+    if (savedFilter && ['all', 'active', 'inactive'].includes(savedFilter)) {
+      setSiteFilter(savedFilter as 'all' | 'active' | 'inactive');
+    }
+  }, []);
+
+  // Save site filter to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('siteFilter', siteFilter);
+  }, [siteFilter]);
 
   // Auto-open form when AI provides prefill data
   useEffect(() => {
@@ -201,8 +239,8 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
     }
   };
 
-  const handleGenerateTransactionsReport = () => {
-    if (selectedSiteForReport && companySettings) {
+  const handleGenerateTransactionsReport = async () => {
+    if (selectedSiteForReport && effectiveCompanySettings) {
       // Get and sort transactions
       const siteTransactions = transactions
         .filter(t => t.siteId === selectedSiteForReport.id)
@@ -230,11 +268,11 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
         notes: transaction.notes || '-'
       }));
 
-      generateUnifiedReport({
+      await generateUnifiedReport({
         title: 'Site Transactions Report',
         subtitle: `${selectedSiteForReport.name} - Transaction History`,
         reportType: 'SITE TRANSACTIONS',
-        companySettings,
+        companySettings: effectiveCompanySettings,
         orientation: 'landscape',
         columns: [
           { header: 'Date', dataKey: 'createdAt', width: 35 },
@@ -270,8 +308,8 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
     setShowWaybillView(true);
   };
 
-  const generateReport = (assetsToReport: Asset[], title: string) => {
-    if (!companySettings) return;
+  const generateReport = async (assetsToReport: Asset[], title: string) => {
+    if (!effectiveCompanySettings) return;
 
     // Calculate summary statistics
     const totalAssets = assetsToReport.length;
@@ -294,11 +332,11 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
       cost: asset.cost || 0
     }));
 
-    generateUnifiedReport({
+    await generateUnifiedReport({
       title: 'Site Materials Report',
       subtitle: title,
       reportType: 'MATERIALS ON SITE',
-      companySettings,
+      companySettings: effectiveCompanySettings,
       orientation: 'landscape',
       columns: [
         { header: 'Name', dataKey: 'name', width: 35 },
@@ -315,7 +353,7 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
       summaryStats: [
         { label: 'Total Assets', value: totalAssets },
         { label: 'Total Quantity', value: totalQuantity },
-        { label: 'Total Value', value: `$${totalValue.toFixed(2)}` },
+        { label: 'Total Value', value: `NGN ${totalValue.toFixed(2)}` },
         { label: 'Equipment Items', value: equipmentCount },
         { label: 'Consumables', value: consumablesCount },
         { label: 'Tools', value: toolsCount }
@@ -323,8 +361,8 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
     });
   };
 
-  const generateWaybillPDF = (waybill: Waybill) => {
-    if (!companySettings) return;
+  const generateWaybillPDF = async (waybill: Waybill) => {
+    if (!effectiveCompanySettings) return;
 
     const site = sites.find(s => s.id === waybill.siteId);
     const siteName = site?.name || 'Unknown Site';
@@ -343,11 +381,11 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
     const totalReturned = waybill.items.reduce((sum, item) => sum + (item.returnedQuantity || 0), 0);
     const outstandingQty = totalQuantity - totalReturned;
 
-    generateUnifiedReport({
+    await generateUnifiedReport({
       title: waybill.type === 'return' ? 'Return Waybill' : 'Waybill',
       subtitle: `Waybill #${waybill.id} | Driver: ${waybill.driverName} | Vehicle: ${waybill.vehicle}`,
       reportType: `${waybill.type === 'return' ? 'RETURN' : 'OUTBOUND'} | Site: ${siteName}`,
-      companySettings,
+      companySettings: effectiveCompanySettings,
       orientation: 'landscape',
       columns: [
         { header: 'Asset Name', dataKey: 'assetName', width: 60 },
@@ -448,7 +486,7 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
                     </Button>
                   </CollapsibleTrigger>
                 </div>
-                
+
                 <CollapsibleContent className="space-y-2">
                   {(() => {
                     const materialsAtSite = getSiteInventory(selectedSite.id);
@@ -486,6 +524,7 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
                 assets={assets}
                 equipmentLogs={equipmentLogs}
                 employees={employees}
+                waybills={waybills}
                 companySettings={companySettings}
                 onAddEquipmentLog={onAddEquipmentLog}
                 onUpdateEquipmentLog={onUpdateEquipmentLog}
@@ -515,7 +554,7 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
                     </Button>
                   </CollapsibleTrigger>
                 </div>
-                
+
                 <CollapsibleContent className="space-y-2">
                   {waybills.filter(waybill => waybill.siteId === selectedSite.id).length === 0 ? (
                     <p className="text-muted-foreground">No waybills for this site.</p>
@@ -560,7 +599,7 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
               </Collapsible>
 
               {/* Actions */}
-              <div className="flex gap-3 pt-4">
+              <div className={`flex gap-3 pt-4 ${isMobile ? 'flex-col' : ''}`}>
                 <Button onClick={() => handleCreateReturnWaybill(selectedSite)} className="flex-1">
                   <FileText className="h-4 w-4 mr-2" />
                   Create Return Waybill
@@ -693,7 +732,7 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
                     const siteTransactions = transactions
                       .filter((t) => t.siteId === selectedSite.id)
                       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-                    
+
                     // Group by referenceId (waybill ID)
                     const grouped = siteTransactions.reduce((acc, t) => {
                       const key = t.referenceId || 'Unassigned';
@@ -741,7 +780,7 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
                     const siteTransactions = transactions
                       .filter((t) => t.siteId === selectedSite.id)
                       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-                    
+
                     const inflows = siteTransactions.filter(t => t.type === 'in');
                     const outflows = siteTransactions.filter(t => t.type === 'out');
 
@@ -813,46 +852,48 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
                   )}
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Asset</TableHead>
-                      <TableHead>Quantity</TableHead>
-                      <TableHead>Reference</TableHead>
-                      <TableHead>Notes</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {transactions
-                      .filter((t) => t.siteId === selectedSite.id)
-                      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                      .map((transaction) => (
-                        <TableRow key={transaction.id}>
-                          <TableCell>{new Date(transaction.createdAt).toLocaleString()}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={transaction.type === "in" ? "default" : "secondary"}
-                            >
-                              {transaction.type.toUpperCase()}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="font-medium">{transaction.assetName}</TableCell>
-                          <TableCell>{transaction.quantity}</TableCell>
-                          <TableCell>{transaction.referenceId}</TableCell>
-                          <TableCell className="text-sm">{transaction.notes}</TableCell>
-                        </TableRow>
-                      ))}
-                    {transactions.filter((t) => t.siteId === selectedSite.id).length === 0 && (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
-                          No transactions for this site yet.
-                        </TableCell>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Asset</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead>Reference</TableHead>
+                        <TableHead>Notes</TableHead>
                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {transactions
+                        .filter((t) => t.siteId === selectedSite.id)
+                        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                        .map((transaction) => (
+                          <TableRow key={transaction.id}>
+                            <TableCell>{new Date(transaction.createdAt).toLocaleString()}</TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={transaction.type === "in" ? "default" : "secondary"}
+                              >
+                                {transaction.type.toUpperCase()}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-medium">{transaction.assetName}</TableCell>
+                            <TableCell>{transaction.quantity}</TableCell>
+                            <TableCell>{transaction.referenceId}</TableCell>
+                            <TableCell className="text-sm">{transaction.notes}</TableCell>
+                          </TableRow>
+                        ))}
+                      {transactions.filter((t) => t.siteId === selectedSite.id).length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
+                            No transactions for this site yet.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </div>
           </DialogContent>

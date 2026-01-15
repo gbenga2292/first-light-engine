@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { Waybill } from '@/types/asset';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
+import { dataService } from '@/services/dataService';
 
 interface WaybillsContextType {
   waybills: Waybill[];
@@ -22,28 +23,26 @@ export const useWaybills = () => {
   return context;
 };
 
-export const WaybillsProvider: React.FC<{ children: React.ReactNode; currentUserName?: string }> = ({ 
-  children, 
-  currentUserName = 'Unknown User' 
+export const WaybillsProvider: React.FC<{ children: React.ReactNode; currentUserName?: string }> = ({
+  children,
+  currentUserName = 'Unknown User'
 }) => {
   const { toast } = useToast();
   const [waybills, setWaybills] = useState<Waybill[]>([]);
 
   const loadWaybills = useCallback(async () => {
-    if (window.db) {
-      try {
-        const loadedWaybills = await window.db.getWaybills();
-        setWaybills(loadedWaybills.map((item: any) => ({
-          ...item,
-          issueDate: new Date(item.issueDate),
-          expectedReturnDate: item.expectedReturnDate ? new Date(item.expectedReturnDate) : undefined,
-          sentToSiteDate: item.sentToSiteDate ? new Date(item.sentToSiteDate) : undefined,
-          createdAt: new Date(item.createdAt),
-          updatedAt: new Date(item.updatedAt)
-        })));
-      } catch (error) {
-        logger.error('Failed to load waybills from database', error);
-      }
+    try {
+      const loadedWaybills = await dataService.waybills.getWaybills();
+      setWaybills(loadedWaybills.map((item: any) => ({
+        ...item,
+        issueDate: new Date(item.issueDate || item.issue_date),
+        expectedReturnDate: item.expectedReturnDate || item.expected_return_date ? new Date(item.expectedReturnDate || item.expected_return_date) : undefined,
+        sentToSiteDate: item.sentToSiteDate || item.sent_to_site_date ? new Date(item.sentToSiteDate || item.sent_to_site_date) : undefined,
+        createdAt: new Date(item.createdAt || item.created_at),
+        updatedAt: new Date(item.updatedAt || item.updated_at)
+      })));
+    } catch (error) {
+      logger.error('Failed to load waybills from database', error);
     }
   }, []);
 
@@ -52,15 +51,6 @@ export const WaybillsProvider: React.FC<{ children: React.ReactNode; currentUser
   }, [loadWaybills]);
 
   const createWaybill = async (waybillData: Partial<Waybill>): Promise<Waybill | null> => {
-    if (!window.db) {
-      toast({
-        title: "Database Not Available",
-        description: "This app needs to run in Electron mode to access the database.",
-        variant: "destructive"
-      });
-      return null;
-    }
-
     const newWaybill: Partial<Waybill> = {
       ...waybillData,
       issueDate: waybillData.issueDate || new Date(),
@@ -76,46 +66,29 @@ export const WaybillsProvider: React.FC<{ children: React.ReactNode; currentUser
       }))
     };
 
-    // Prepare data for database insertion (ID will be generated in database)
-    const dbWaybillData = {
-      siteId: newWaybill.siteId,
-      driverName: newWaybill.driverName,
-      vehicle: newWaybill.vehicle,
-      issueDate: newWaybill.issueDate!.toISOString(),
-      expectedReturnDate: newWaybill.expectedReturnDate ? newWaybill.expectedReturnDate.toISOString() : null,
-      purpose: newWaybill.purpose,
-      service: newWaybill.service,
-      status: newWaybill.status,
-      type: newWaybill.type,
-      createdAt: newWaybill.createdAt!.toISOString(),
-      updatedAt: newWaybill.updatedAt!.toISOString(),
-      createdBy: currentUserName,
-      items: newWaybill.items
-    };
-
     try {
-      const result = await window.db.createWaybill(dbWaybillData);
-      
+      const result = await dataService.waybills.createWaybill(newWaybill);
+
       if (!result) {
         throw new Error('Failed to create waybill');
       }
-      
+
       // Reload from database to ensure consistency
       await loadWaybills();
 
       // Also refresh assets to show updated reserved quantities
-      if (window.db) {
-        try {
-          const loadedAssets = await window.db.getAssets();
-          // Trigger assets refresh in AssetsContext
-          window.dispatchEvent(new CustomEvent('refreshAssets', { detail: loadedAssets.map((item: any) => ({
+      try {
+        const loadedAssets = await dataService.assets.getAssets();
+        // Trigger assets refresh in AssetsContext
+        window.dispatchEvent(new CustomEvent('refreshAssets', {
+          detail: loadedAssets.map((item: any) => ({
             ...item,
-            createdAt: new Date(item.createdAt),
-            updatedAt: new Date(item.updatedAt)
-          })) }));
-        } catch (error) {
-          logger.error('Failed to refresh assets after waybill creation', error);
-        }
+            createdAt: new Date(item.createdAt || item.created_at),
+            updatedAt: new Date(item.updatedAt || item.updated_at)
+          }))
+        }));
+      } catch (error) {
+        logger.error('Failed to refresh assets after waybill creation', error);
       }
 
       toast({
@@ -137,12 +110,9 @@ export const WaybillsProvider: React.FC<{ children: React.ReactNode; currentUser
 
   const updateWaybill = async (id: string, updatedWaybill: Waybill) => {
     try {
-      if (window.db) {
-        await window.db.updateWaybill(id, updatedWaybill);
-      }
-      
+      await dataService.waybills.updateWaybill(id, updatedWaybill);
       setWaybills(prev => prev.map(wb => wb.id === id ? updatedWaybill : wb));
-      
+
       toast({
         title: "Waybill Updated",
         description: `Waybill ${id} has been updated successfully`
@@ -159,9 +129,9 @@ export const WaybillsProvider: React.FC<{ children: React.ReactNode; currentUser
 
   const deleteWaybill = async (id: string) => {
     try {
-      await window.db.deleteWaybill(id);
+      await dataService.waybills.deleteWaybill(id);
       setWaybills(prev => prev.filter(wb => wb.id !== id));
-      
+
       toast({
         title: "Waybill Deleted",
         description: `Waybill ${id} has been deleted successfully`

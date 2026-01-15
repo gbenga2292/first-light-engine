@@ -7,7 +7,7 @@ export interface Asset {
   availableQuantity: number; // Calculated: quantity - reservedQuantity - sum of siteQuantities
   siteQuantities: Record<string, number>; // Quantities allocated to specific sites
   unitOfMeasurement: string;
-  category: 'dewatering' | 'waterproofing';
+  category: 'dewatering' | 'waterproofing' | 'tiling' | 'ppe' | 'office';
   type: 'consumable' | 'non-consumable' | 'tools' | 'equipment';
   location?: string;
   siteId?: string; // Link asset to a specific site
@@ -16,10 +16,16 @@ export interface Asset {
   condition: 'excellent' | 'good' | 'fair' | 'poor';
   missingCount?: number;
   damagedCount?: number;
+  usedCount?: number;
   lowStockLevel: number;
   criticalStockLevel: number;
   purchaseDate?: Date;
   cost: number;
+  // Machine/Equipment details
+  model?: string;
+  serialNumber?: string;
+  serviceInterval?: number; // in months, default 2
+  deploymentDate?: Date;
   // Equipment-specific operational details
   powerSource?: 'fuel' | 'electricity' | 'hybrid' | 'manual';
   fuelCapacity?: number; // Tank capacity in liters
@@ -72,7 +78,8 @@ export interface QuickCheckout {
   checkoutDate: Date;
   expectedReturnDays: number;
   returnDate?: Date;
-  status: 'outstanding' | 'return_completed' | 'lost' | 'damaged';
+  status: 'outstanding' | 'return_completed' | 'lost' | 'damaged' | 'used';
+  notes?: string; // Optional notes for return/update clarification
 }
 
 export interface ReturnBill {
@@ -121,6 +128,18 @@ export interface CompanySettings {
     email: boolean;
     push: boolean;
   };
+  ai?: {
+    remote: {
+      enabled: boolean | string | number;
+      provider: string;
+      apiKey: string;
+      endpoint: string;
+      model: string;
+    };
+  };
+  maintenanceFrequency?: number; // Global default maintenance frequency in days
+  currencySymbol?: string; // e.g. ₦, $, €
+  electricityRate?: number; // Electricity cost per kWh (e.g., 200 for ₦200/kWh)
 }
 
 export interface Employee {
@@ -165,8 +184,8 @@ export interface Activity {
   id: string;
   userId?: string;
   userName?: string;
-  action: 'create' | 'update' | 'delete' | 'process_return' | 'add_site' | 'update_site' | 'delete_site' | 'add_asset' | 'update_asset' | 'delete_asset' | 'add_employee' | 'backup' | 'restore' | 'clear';
-  entity: 'waybill' | 'return' | 'site' | 'asset' | 'employee' | 'company_settings' | 'activities' | 'vehicle' | 'equipment_log' | 'consumable_log';
+  action: 'create' | 'update' | 'delete' | 'process_return' | 'add_site' | 'update_site' | 'delete_site' | 'add_asset' | 'update_asset' | 'delete_asset' | 'add_employee' | 'backup' | 'restore' | 'clear' | 'login' | 'logout' | 'create_user' | 'update_user' | 'delete_user' | 'checkout' | 'return' | 'move' | 'reset' | 'restock';
+  entity: 'waybill' | 'return' | 'site' | 'asset' | 'employee' | 'company_settings' | 'activities' | 'vehicle' | 'equipment_log' | 'consumable_log' | 'user' | 'checkout' | 'system' | 'database' | 'maintenance' | 'machine';
   entityId?: string;
   details?: string;
   timestamp: Date;

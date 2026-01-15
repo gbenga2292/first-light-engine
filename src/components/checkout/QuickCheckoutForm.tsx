@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +12,7 @@ import { ShoppingCart, RotateCcw, User, Calendar, Trash2, FileText } from "lucid
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { QuickCheckoutReport } from "./QuickCheckoutReport";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface QuickCheckoutFormProps {
   assets: Asset[];
@@ -18,8 +20,9 @@ interface QuickCheckoutFormProps {
   quickCheckouts: QuickCheckout[];
   onQuickCheckout: (checkout: Omit<QuickCheckout, 'id'>) => void;
   onReturnItem: (checkoutId: string) => void;
-  onPartialReturn?: (checkoutId: string, quantity: number, condition: 'good' | 'damaged' | 'missing') => void;
+  onPartialReturn?: (checkoutId: string, quantity: number, condition: 'good' | 'damaged' | 'missing' | 'used', notes?: string) => void;
   onDeleteCheckout?: (checkoutId: string) => void;
+  onNavigateToAnalytics?: () => void;
 }
 
 export const QuickCheckoutForm = ({
@@ -29,7 +32,8 @@ export const QuickCheckoutForm = ({
   onQuickCheckout,
   onReturnItem,
   onPartialReturn,
-  onDeleteCheckout
+  onDeleteCheckout,
+  onNavigateToAnalytics
 }: QuickCheckoutFormProps) => {
   const [formData, setFormData] = useState({
     assetId: '',
@@ -42,14 +46,28 @@ export const QuickCheckoutForm = ({
     open: false,
     checkoutId: '',
     quantity: 1,
-    condition: 'good' as 'good' | 'damaged' | 'missing'
+    condition: 'good' as 'good' | 'damaged' | 'missing',
+    notes: ''
   });
 
-  const outstandingCheckouts = quickCheckouts.filter(checkout => checkout.status === 'outstanding');
-  const { isAuthenticated, currentUser } = useAuth();
+  const [activityFilter, setActivityFilter] = useState<'all' | 'outstanding' | 'return_completed' | 'used' | 'lost' | 'damaged'>('all');
+
+  const { isAuthenticated, currentUser, hasPermission } = useAuth();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
+
+  // Main checkout list shows only outstanding items
+  const filteredCheckouts = quickCheckouts.filter(checkout => checkout.status === 'outstanding');
+
+  // Calculate available quantity based on OUTSTANDING items only
+  const outstandingCheckouts = quickCheckouts.filter(checkout => checkout.status === 'outstanding' || checkout.status === 'lost' || checkout.status === 'damaged');
 
   const selectedAsset = assets.find(a => a.id === formData.assetId);
+
+  // Find asset for the return dialog
+  const returnCheckout = quickCheckouts.find(c => c.id === returnDialog.checkoutId);
+  const returnAsset = assets.find(a => a.id === returnCheckout?.assetId);
+  const canMarkAsUsed = returnAsset && returnAsset.type !== 'tools' && returnAsset.type !== 'equipment';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,10 +101,11 @@ export const QuickCheckoutForm = ({
   const getAvailableQuantity = (assetId: string) => {
     const asset = assets.find(a => a.id === assetId);
     if (!asset) return 0;
-    const checkedOut = outstandingCheckouts
-      .filter(checkout => checkout.assetId === assetId)
-      .reduce((sum, checkout) => sum + checkout.quantity, 0);
-    return asset.availableQuantity - (asset.damagedCount || 0) - (asset.missingCount || 0) - checkedOut;
+
+    // Use the already calculated availableQuantity from the asset object
+    // This avoids double-counting reserved items since the main asset list 
+    // should already reflect reservations/checkouts in its availableQuantity.
+    return asset.availableQuantity || 0;
   };
 
   const availableAssets = assets.filter(asset => getAvailableQuantity(asset.id) > 0);
@@ -104,19 +123,21 @@ export const QuickCheckoutForm = ({
       open: true,
       checkoutId,
       quantity: remainingQuantity,
-      condition: 'good'
+      condition: 'good',
+      notes: checkout.notes || ''
     });
   };
 
   const handlePartialReturn = () => {
     if (onPartialReturn) {
-      onPartialReturn(returnDialog.checkoutId, returnDialog.quantity, returnDialog.condition);
+      onPartialReturn(returnDialog.checkoutId, returnDialog.quantity, returnDialog.condition, returnDialog.notes);
     }
     setReturnDialog({
       open: false,
       checkoutId: '',
       quantity: 1,
-      condition: 'good'
+      condition: 'good',
+      notes: ''
     });
   };
 
@@ -130,12 +151,14 @@ export const QuickCheckoutForm = ({
         return <Badge variant="destructive">Lost</Badge>;
       case 'damaged':
         return <Badge className="bg-gradient-warning text-warning-foreground">Damaged</Badge>;
+      case 'used':
+        return <Badge className="bg-blue-500 hover:bg-blue-600">Used (Consumable)</Badge>;
     }
   };
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-between items-start">
+      <div className={`flex ${isMobile ? 'flex-col gap-4' : 'justify-between items-start'}`}>
         <div>
           <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
             Quick Checkout
@@ -144,7 +167,13 @@ export const QuickCheckoutForm = ({
             Fast checkout for individual employees and short-term loans
           </p>
         </div>
-        <QuickCheckoutReport quickCheckouts={quickCheckouts} />
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2" onClick={onNavigateToAnalytics}>
+            <User className="h-4 w-4" />
+            Employees
+          </Button>
+          <QuickCheckoutReport quickCheckouts={quickCheckouts} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -189,7 +218,7 @@ export const QuickCheckoutForm = ({
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="quantity">Quantity *</Label>
                   <Input
@@ -198,7 +227,7 @@ export const QuickCheckoutForm = ({
                     min="1"
                     max={getMaxQuantity(formData.assetId)}
                     value={formData.quantity}
-                    onChange={(e) => setFormData({...formData, quantity: parseInt(e.target.value) || 1})}
+                    onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })}
                     className="border-0 bg-muted/50 focus:bg-background transition-all duration-300"
                   />
                 </div>
@@ -210,7 +239,7 @@ export const QuickCheckoutForm = ({
                     type="number"
                     min="1"
                     value={formData.expectedReturnDays}
-                    onChange={(e) => setFormData({...formData, expectedReturnDays: parseInt(e.target.value) || 7})}
+                    onChange={(e) => setFormData({ ...formData, expectedReturnDays: parseInt(e.target.value) || 7 })}
                     className="border-0 bg-muted/50 focus:bg-background transition-all duration-300"
                   />
                 </div>
@@ -220,7 +249,7 @@ export const QuickCheckoutForm = ({
                 <Label htmlFor="employee">Employee Name *</Label>
                 <Select
                   value={formData.employee}
-                  onValueChange={(value) => setFormData({...formData, employee: value})}
+                  onValueChange={(value) => setFormData({ ...formData, employee: value })}
                 >
                   <SelectTrigger className="border-0 bg-muted/50 focus:bg-background transition-all duration-300">
                     <SelectValue placeholder="Select employee" />
@@ -243,7 +272,7 @@ export const QuickCheckoutForm = ({
               <Button
                 type="submit"
                 className="w-full bg-gradient-primary hover:scale-105 transition-all duration-300 shadow-medium"
-                disabled={!formData.assetId || !formData.employee || currentUser?.role === 'staff'}
+                disabled={!formData.assetId || !formData.employee || !hasPermission('write_quick_checkouts')}
               >
                 <ShoppingCart className="h-4 w-4 mr-2" />
                 Checkout Item
@@ -252,69 +281,79 @@ export const QuickCheckoutForm = ({
           </CardContent>
         </Card>
 
-        {/* Outstanding Checkouts */}
+        {/* Checkouts List with Filter */}
         <Card className="border-0 shadow-soft">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <RotateCcw className="h-5 w-5" />
-              Outstanding Checkouts ({outstandingCheckouts.length})
+              Checkouts ({filteredCheckouts.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {outstandingCheckouts.length === 0 ? (
+            {filteredCheckouts.length === 0 ? (
               <div className="text-center py-8">
                 <ShoppingCart className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-muted-foreground">No outstanding checkouts</p>
+                <div className="text-center py-8">
+                  <ShoppingCart className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-muted-foreground">No checkouts found</p>
+                </div>
               </div>
             ) : (
               <div className="space-y-4 max-h-96 overflow-y-auto">
-                {outstandingCheckouts.map((checkout, index) => (
-                  <div key={`${checkout.id}-${index}`} className="border rounded-lg p-4 bg-muted/30">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h4 className="font-medium">{checkout.assetName}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Quantity: {checkout.quantity} {checkout.returnedQuantity > 0 && `(Returned: ${checkout.returnedQuantity})`}
-                        </p>
+                {filteredCheckouts.map((checkout, index) => {
+                  const asset = assets.find(a => a.id === checkout.assetId);
+                  const isConsumable = asset?.type === 'consumable' || asset?.type === 'non-consumable';
+
+                  return (
+                    <div key={`${checkout.id}-${index}`} className="border rounded-lg p-4 bg-muted/30">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h4 className="font-medium">{checkout.assetName}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Quantity: {checkout.quantity} {checkout.returnedQuantity > 0 && `(Returned: ${checkout.returnedQuantity})`}
+                          </p>
+                        </div>
+                        {getStatusBadge(checkout.status)}
                       </div>
-                      {getStatusBadge(checkout.status)}
-                    </div>
-                    
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-                      <div className="flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        {checkout.employee}
+
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
+                        <div className="flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          {checkout.employee}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {checkout.checkoutDate.toLocaleDateString()}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {checkout.checkoutDate.toLocaleDateString()}
+
+                      <div className="flex gap-2">
+                        {checkout.status === 'outstanding' && (
+                          <Button
+                            onClick={() => handleOpenReturnDialog(checkout.id)}
+                            size="sm"
+                            variant="outline"
+                            className="flex-1"
+                            disabled={!isAuthenticated || !hasPermission('write_quick_checkouts')}
+                          >
+                            <RotateCcw className="h-3 w-3 mr-2" />
+                            Return / Update
+                          </Button>
+                        )}
+                        {onDeleteCheckout && isAuthenticated && hasPermission('delete_quick_checkouts') && (
+                          <Button
+                            onClick={() => onDeleteCheckout(checkout.id)}
+                            size="sm"
+                            variant="destructive"
+                            className="px-3"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
                       </div>
                     </div>
-                    
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => handleOpenReturnDialog(checkout.id)}
-                        size="sm"
-                        variant="outline"
-                        className="flex-1"
-                        disabled={!isAuthenticated || currentUser?.role === 'staff'}
-                      >
-                        <RotateCcw className="h-3 w-3 mr-2" />
-                        Return
-                      </Button>
-                      {onDeleteCheckout && isAuthenticated && currentUser?.role !== 'staff' && (
-                        <Button
-                          onClick={() => onDeleteCheckout(checkout.id)}
-                          size="sm"
-                          variant="destructive"
-                          className="px-3"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -324,39 +363,91 @@ export const QuickCheckoutForm = ({
       {/* Recent Activity */}
       <Card className="border-0 shadow-soft">
         <CardHeader>
-          <CardTitle>Recent Checkout Activity</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle>Recent Checkout Activity</CardTitle>
+            <div className="flex gap-2 flex-wrap">
+              <Badge
+                variant={activityFilter === 'all' ? 'default' : 'outline'}
+                className="cursor-pointer"
+                onClick={() => setActivityFilter('all')}
+              >
+                All
+              </Badge>
+              <Badge
+                variant={activityFilter === 'outstanding' ? 'default' : 'outline'}
+                className="cursor-pointer"
+                onClick={() => setActivityFilter('outstanding')}
+              >
+                Outstanding
+              </Badge>
+              <Badge
+                variant={activityFilter === 'return_completed' ? 'default' : 'outline'}
+                className="cursor-pointer bg-gradient-success"
+                onClick={() => setActivityFilter('return_completed')}
+              >
+                Returned
+              </Badge>
+              <Badge
+                variant={activityFilter === 'used' ? 'default' : 'outline'}
+                className="cursor-pointer"
+                onClick={() => setActivityFilter('used')}
+              >
+                Used
+              </Badge>
+              <Badge
+                variant={activityFilter === 'lost' ? 'default' : 'outline'}
+                className="cursor-pointer"
+                onClick={() => setActivityFilter('lost')}
+              >
+                Lost
+              </Badge>
+              <Badge
+                variant={activityFilter === 'damaged' ? 'default' : 'outline'}
+                className="cursor-pointer"
+                onClick={() => setActivityFilter('damaged')}
+              >
+                Damaged
+              </Badge>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          {quickCheckouts.length === 0 ? (
-            <div className="text-center py-8">
-              <ShoppingCart className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-muted-foreground">No checkout history yet</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {quickCheckouts.slice(0, 5).map((checkout, index) => (
-                <div key={`${checkout.id}-${index}`} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
-                  <div>
-                    <p className="font-medium">{checkout.assetName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {checkout.employee} • {checkout.quantity} units
-                    </p>
+          {(() => {
+            const filteredActivity = activityFilter === 'all'
+              ? quickCheckouts
+              : quickCheckouts.filter(c => c.status === activityFilter);
+
+            return filteredActivity.length === 0 ? (
+              <div className="text-center py-8">
+                <ShoppingCart className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-muted-foreground">No checkout history for this filter</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredActivity.slice(0, 10).map((checkout, index) => (
+                  <div key={`${checkout.id}-${index}`} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
+                    <div>
+                      <p className="font-medium">{checkout.assetName}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {checkout.employee} • {checkout.quantity} units
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      {getStatusBadge(checkout.status)}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {checkout.checkoutDate.toLocaleDateString()}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    {getStatusBadge(checkout.status)}
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {checkout.checkoutDate.toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 
       {/* Return Dialog */}
-      <Dialog open={returnDialog.open} onOpenChange={(open) => setReturnDialog({...returnDialog, open})}>
+      <Dialog open={returnDialog.open} onOpenChange={(open) => setReturnDialog({ ...returnDialog, open })}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Return Items</DialogTitle>
@@ -370,38 +461,53 @@ export const QuickCheckoutForm = ({
                 min="1"
                 max={returnDialog.quantity}
                 value={returnDialog.quantity}
-                onChange={(e) => setReturnDialog({...returnDialog, quantity: parseInt(e.target.value) || 1})}
+                onChange={(e) => setReturnDialog({ ...returnDialog, quantity: parseInt(e.target.value) || 1 })}
                 className="border-0 bg-muted/50 focus:bg-background transition-all duration-300"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="return-condition">Condition</Label>
+              <Label htmlFor="return-condition">Condition / Status</Label>
               <Select
                 value={returnDialog.condition}
-                onValueChange={(value: 'good' | 'damaged' | 'missing') => setReturnDialog({...returnDialog, condition: value})}
+                onValueChange={(value: any) => setReturnDialog({ ...returnDialog, condition: value })}
               >
                 <SelectTrigger className="border-0 bg-muted/50 focus:bg-background transition-all duration-300">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="good">Good</SelectItem>
-                  <SelectItem value="damaged">Damaged</SelectItem>
-                  <SelectItem value="missing">Missing</SelectItem>
+                  <SelectItem value="good">Returned (Good)</SelectItem>
+                  <SelectItem value="damaged">Returned (Damaged)</SelectItem>
+                  <SelectItem value="missing">Lost / Missing</SelectItem>
+                  {/* Only show 'Used' option if asset is NOT a tool or equipment */}
+                  {canMarkAsUsed && <SelectItem value="used">Used / Consumed</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="return-notes">Notes (Optional)</Label>
+              <Textarea
+                id="return-notes"
+                placeholder="Add any notes or clarification about this return/update..."
+                value={returnDialog.notes}
+                onChange={(e) => setReturnDialog({ ...returnDialog, notes: e.target.value })}
+                className="border-0 bg-muted/50 focus:bg-background transition-all duration-300 min-h-[80px]"
+              />
+              <p className="text-xs text-muted-foreground">
+                These notes will appear in checkout reports for additional context
+              </p>
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setReturnDialog({...returnDialog, open: false})}>
+            <Button variant="outline" onClick={() => setReturnDialog({ ...returnDialog, open: false })}>
               Cancel
             </Button>
             <Button onClick={handlePartialReturn} className="bg-gradient-primary hover:scale-105 transition-all duration-300">
               <RotateCcw className="h-4 w-4 mr-2" />
-              Return Items
+              Update Status
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 };

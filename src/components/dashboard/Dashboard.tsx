@@ -1,14 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Asset, Waybill, QuickCheckout, Activity, Site } from "@/types/asset";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Asset, Waybill, QuickCheckout, Activity, Site, Employee } from "@/types/asset";
 import { EquipmentLog } from "@/types/equipment";
-import { Package, FileText, ShoppingCart, AlertTriangle, TrendingDown, CheckCircle, User, Wrench, BarChart3 } from "lucide-react";
+import { Package, FileText, ShoppingCart, AlertTriangle, TrendingDown, CheckCircle, User, Wrench, BarChart3, ChevronDown, ChevronUp, CalendarIcon, MapPin } from "lucide-react";
 import { getActivities } from "@/utils/activityLogger";
 import { SiteMachineAnalytics } from "@/components/sites/SiteMachineAnalytics";
-import { format } from "date-fns";
+import { NotificationPanel } from "./NotificationPanel";
+import { TrendChart } from "./TrendChart";
+import { SyncStatusBanner } from "@/components/layout/SyncStatusBanner";
+import { useMetricsSnapshots, getMetricsHistory } from "@/hooks/useMetricsSnapshots";
+import { format, subDays } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 interface DashboardProps {
   assets: Asset[];
@@ -16,35 +23,157 @@ interface DashboardProps {
   quickCheckouts: QuickCheckout[];
   sites: Site[];
   equipmentLogs: EquipmentLog[];
+  employees: Employee[];
+  onQuickLogEquipment: (log: EquipmentLog) => void;
+  onNavigate: (tab: string, params?: { availability: 'out' | 'restock' }) => void;
 }
 
-export const Dashboard = ({ assets, waybills, quickCheckouts, sites, equipmentLogs }: DashboardProps) => {
+export const Dashboard = ({ assets, waybills, quickCheckouts, sites, equipmentLogs, employees, onQuickLogEquipment, onNavigate }: DashboardProps) => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [selectedEquipment, setSelectedEquipment] = useState<Asset | null>(null);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
-
-  // Load activities on mount
-  useEffect(() => {
-    const loadActivities = async () => {
-      const loadedActivities = await getActivities();
-      setActivities(loadedActivities);
-    };
-    loadActivities();
-  }, []);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [activityDateRange, setActivityDateRange] = useState({ from: subDays(new Date(), 7), to: new Date() });
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [metricsHistory, setMetricsHistory] = useState<any[]>([]);
+  const [isEquipmentLoggingExpanded, setIsEquipmentLoggingExpanded] = useState(true);
+  const { toast } = useToast();
 
   const totalAssets = assets.length;
   const totalQuantity = assets.reduce((sum, asset) => sum + asset.quantity, 0);
   const outOfStockCount = assets.filter(asset => asset.quantity === 0).length;
   const lowStockCount = assets.filter(asset => asset.quantity > 0 && asset.quantity < 10).length;
-  
+
   const outstandingWaybills = (waybills || []).filter(w => w.status === 'outstanding').length;
   const outstandingCheckouts = (quickCheckouts || []).filter(c => c.status === 'outstanding').length;
-  
+
+  // Store current metrics as snapshot
+  useMetricsSnapshots({
+    totalAssets,
+    totalQuantity,
+    outstandingWaybills,
+    outstandingCheckouts,
+    outOfStockCount,
+    lowStockCount,
+  });
+
+  // Load activities and metrics history on mount
+  useEffect(() => {
+    const loadData = async () => {
+      const loadedActivities = await getActivities();
+      setActivities(loadedActivities);
+
+      const history = await getMetricsHistory(7);
+      setMetricsHistory(history);
+    };
+    loadData();
+  }, []);
+
+  // Get real trend data from historical snapshots
+  const getTrendDataFromHistory = (metricKey: string, currentValue: number): number[] => {
+    if (metricsHistory.length === 0) {
+      // Fallback to single data point if no history yet
+      return [currentValue];
+    }
+
+    const data = metricsHistory.map(snapshot => {
+      switch (metricKey) {
+        case 'totalAssets': return snapshot.total_assets;
+        case 'totalQuantity': return snapshot.total_quantity;
+        case 'outstandingWaybills': return snapshot.outstanding_waybills;
+        case 'outstandingCheckouts': return snapshot.outstanding_checkouts;
+        case 'outOfStock': return snapshot.out_of_stock;
+        case 'lowStock': return snapshot.low_stock;
+        default: return currentValue;
+      }
+    });
+
+    // Always include current value as the last data point
+    return [...data, currentValue];
+  };
+
+  const getTrend = (data: number[]): { trend: "up" | "down" | "neutral", percentage: number } => {
+    const first = data[0];
+    const last = data[data.length - 1];
+    const diff = last - first;
+    const percentage = first === 0 ? 0 : Math.round((diff / first) * 100);
+
+    if (Math.abs(percentage) < 5) return { trend: "neutral", percentage: 0 };
+    return { trend: diff > 0 ? "up" : "down", percentage };
+  };
+
   // Calculate categories
   const dewateringAssets = assets.filter(a => a.category === 'dewatering');
   const waterproofingAssets = assets.filter(a => a.category === 'waterproofing');
-  
+  const tilingAssets = assets.filter(a => a.category === 'tiling');
+  const ppeAssets = assets.filter(a => a.category === 'ppe');
+  const officeAssets = assets.filter(a => a.category === 'office');
+
+  // Helper function to toggle category expansion
+  const toggleCategoryExpansion = (category: string) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  };
+
+  // Helper function to render category card
+  const renderCategoryCard = (title: string, assets: Asset[], icon: any, category: string, delay: string) => {
+    const isExpanded = expandedCategories[category];
+    const displayAssets = isExpanded ? assets : assets.slice(0, 3);
+
+    return (
+      <Card className="border-0 shadow-soft">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {icon}
+              {title}
+            </div>
+            {assets.length > 3 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => toggleCategoryExpansion(category)}
+                className="h-6 w-6 p-0"
+              >
+                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            )}
+          </CardTitle>
+          <CardDescription>
+            {assets.length} items - {assets.reduce((sum, a) => sum + a.quantity, 0)} units
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {displayAssets.map((asset, index) => (
+              <div key={asset.id || index} className="flex justify-between items-center">
+                <span className="text-sm">{asset.name}</span>
+                <span className={`text-sm font-medium ${asset.quantity === 0 ? 'text-destructive' :
+                  asset.quantity < 10 ? 'text-warning' : 'text-success'
+                  }`}>
+                  {asset.quantity} {asset.unitOfMeasurement}
+                </span>
+              </div>
+            ))}
+            {assets.length > 3 && !isExpanded && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => toggleCategoryExpansion(category)}
+                className="w-full text-sm text-muted-foreground hover:text-foreground"
+              >
+                +{assets.length - 3} more items
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   // Get all equipment requiring logging
   const equipmentRequiringLogging = assets.filter(
     asset => asset.type === 'equipment' && asset.requiresLogging === true
@@ -74,7 +203,7 @@ export const Dashboard = ({ assets, waybills, quickCheckouts, sites, equipmentLo
     const logs = equipmentLogs
       .filter(log => log.equipmentId === equipmentId)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    
+
     if (logs.length > 0) {
       return { active: logs[0].active, date: logs[0].date };
     }
@@ -94,241 +223,409 @@ export const Dashboard = ({ assets, waybills, quickCheckouts, sites, equipmentLo
     }
     return null;
   };
-  
-  const stats = [
+
+  const stats = useMemo(() => [
     {
       title: "Total Assets",
       value: totalAssets,
       description: "Items in inventory",
       icon: Package,
-      color: "text-primary"
+      color: "text-primary",
+      trendData: getTrendDataFromHistory('totalAssets', totalAssets),
+      getTrendInfo: function () { return getTrend(this.trendData); }
     },
     {
       title: "Total Quantity",
       value: totalQuantity,
       description: "Units in stock",
       icon: Package,
-      color: "text-success"
+      color: "text-success",
+      trendData: getTrendDataFromHistory('totalQuantity', totalQuantity),
+      getTrendInfo: function () { return getTrend(this.trendData); }
     },
     {
       title: "Outstanding Waybills",
       value: outstandingWaybills,
       description: "Items out for projects",
       icon: FileText,
-      color: "text-warning"
+      color: "text-warning",
+      trendData: getTrendDataFromHistory('outstandingWaybills', outstandingWaybills),
+      getTrendInfo: function () { return getTrend(this.trendData); }
     },
     {
       title: "Quick Checkouts",
       value: outstandingCheckouts,
       description: "Items checked out",
       icon: ShoppingCart,
-      color: "text-primary"
+      color: "text-primary",
+      trendData: getTrendDataFromHistory('outstandingCheckouts', outstandingCheckouts),
+      getTrendInfo: function () { return getTrend(this.trendData); }
     },
     {
       title: "Out of Stock",
       value: outOfStockCount,
       description: "Items needing reorder",
       icon: AlertTriangle,
-      color: "text-destructive"
+      color: "text-destructive",
+      trendData: getTrendDataFromHistory('outOfStock', outOfStockCount),
+      getTrendInfo: function () { return getTrend(this.trendData); }
     },
     {
       title: "Low Stock",
       value: lowStockCount,
       description: "Items running low",
       icon: TrendingDown,
-      color: "text-warning"
+      color: "text-warning",
+      trendData: getTrendDataFromHistory('lowStock', lowStockCount),
+      getTrendInfo: function () { return getTrend(this.trendData); }
     }
-  ];
+  ], [totalAssets, totalQuantity, outstandingWaybills, outstandingCheckouts, outOfStockCount, lowStockCount, metricsHistory]);
+
+  // Filter activities by date range
+  const filteredActivities = useMemo(() => {
+    return activities.filter(activity => {
+      const activityDate = activity.timestamp;
+      return activityDate >= activityDateRange.from && activityDate <= activityDateRange.to;
+    });
+  }, [activities, activityDateRange]);
+
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Header */}
-      <div>
-        <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-          Asset Management Dashboard
+    <div className="space-y-4 md:space-y-8">
+      {/* Sync Status Banner */}
+      <SyncStatusBanner />
+
+      {/* Header - Mobile Optimized */}
+      <div className="px-1">
+        <h1 className="text-2xl md:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+          Dashboard
         </h1>
-        <p className="text-muted-foreground mt-2">
-          Overview of your inventory, waybills, and asset tracking
+        <p className="text-muted-foreground text-sm md:text-base mt-1">
+          Inventory & asset overview
         </p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {stats.map((stat, index) => (
-          <Card 
-            key={stat.title} 
-            className="border-0 shadow-soft hover:shadow-medium transition-all duration-300 animate-slide-up"
-            style={{animationDelay: `${index * 0.1}s`}}
-          >
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <stat.icon className={`h-4 w-4 ${stat.color}`} />
-                {stat.title}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className={`text-3xl font-bold ${stat.color}`}>
-                {stat.value}
+      {/* Action Modules Grid - Mobile Optimized */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-6">
+        {/* 1. Inventory Overview */}
+        <Card
+          className="border-0 shadow-soft hover:shadow-lg transition-all duration-300 cursor-pointer group relative overflow-hidden active:scale-[0.98]"
+          onClick={() => onNavigate('assets')}
+        >
+          <div className="absolute top-0 right-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Package className="h-16 md:h-24 w-16 md:w-24 text-primary" />
+          </div>
+          <CardHeader className="pb-2 p-3 md:p-6">
+            <CardTitle className="flex items-center gap-2 text-base md:text-xl">
+              <Package className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+              Inventory
+            </CardTitle>
+            <CardDescription className="text-xs md:text-sm">Tools, equipment & consumables</CardDescription>
+          </CardHeader>
+          <CardContent className="p-3 md:p-6 pt-0">
+            <div className="flex justify-between items-end">
+              <div>
+                <div className="text-2xl md:text-3xl font-bold text-primary">{totalAssets}</div>
+                <div className="text-xs md:text-sm text-muted-foreground">Assets</div>
               </div>
-              <CardDescription className="mt-2">
-                {stat.description}
-              </CardDescription>
-            </CardContent>
-          </Card>
-        ))}
+              <div className="text-right">
+                <div className="text-xl md:text-2xl font-bold text-success">{totalQuantity}</div>
+                <div className="text-xs md:text-sm text-muted-foreground">Total Qty</div>
+              </div>
+            </div>
+            {(outOfStockCount > 0 || lowStockCount > 0) && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {outOfStockCount > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="flex gap-1 items-center text-xs hover:bg-destructive/80 transition-colors z-10 relative"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onNavigate('assets', { availability: 'out' });
+                    }}
+                  >
+                    <AlertTriangle className="h-3 w-3" />
+                    {outOfStockCount} Out
+                  </Badge>
+                )}
+                {lowStockCount > 0 && (
+                  <Badge
+                    variant="outline"
+                    className="text-warning border-warning flex gap-1 items-center text-xs hover:bg-warning/10 transition-colors z-10 relative"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onNavigate('assets', { availability: 'restock' });
+                    }}
+                  >
+                    <TrendingDown className="h-3 w-3" />
+                    {lowStockCount} Low
+                  </Badge>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 2. Project Waybills */}
+        <Card
+          className="border-0 shadow-soft hover:shadow-lg transition-all duration-300 cursor-pointer group relative overflow-hidden active:scale-[0.98]"
+          onClick={() => onNavigate('waybills')}
+        >
+          <div className="absolute top-0 right-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <FileText className="h-16 md:h-24 w-16 md:w-24 text-warning" />
+          </div>
+          <CardHeader className="pb-2 p-3 md:p-6">
+            <CardTitle className="flex items-center gap-2 text-base md:text-xl">
+              <FileText className="h-5 w-5 md:h-6 md:w-6 text-warning" />
+              Waybills
+            </CardTitle>
+            <CardDescription className="text-xs md:text-sm">Track site deployments</CardDescription>
+          </CardHeader>
+          <CardContent className="p-3 md:p-6 pt-0">
+            <div className="text-2xl md:text-3xl font-bold text-warning">{outstandingWaybills}</div>
+            <div className="text-xs md:text-sm text-muted-foreground">Outstanding</div>
+            <div className="mt-3 h-2 w-full bg-secondary rounded-full overflow-hidden">
+              <div className="h-full bg-warning/50 w-3/4 rounded-full" />
+            </div>
+            <div className="flex items-center justify-between mt-2 pt-2 border-t">
+              <p className="text-[10px] md:text-xs text-muted-foreground">Pending return</p>
+              <Badge variant="outline" className="text-[10px] md:text-xs">
+                {waybills.length} Total
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 3. Returns Processing */}
+        <Card
+          className="border-0 shadow-soft hover:shadow-lg transition-all duration-300 cursor-pointer group relative overflow-hidden active:scale-[0.98]"
+          onClick={() => onNavigate('returns')}
+        >
+          <div className="absolute top-0 right-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <CheckCircle className="h-16 md:h-24 w-16 md:w-24 text-blue-500" />
+          </div>
+          <CardHeader className="pb-2 p-3 md:p-6">
+            <CardTitle className="flex items-center gap-2 text-base md:text-xl">
+              <CheckCircle className="h-5 w-5 md:h-6 md:w-6 text-blue-500" />
+              Returns
+            </CardTitle>
+            <CardDescription className="text-xs md:text-sm">Process returned items</CardDescription>
+          </CardHeader>
+          <CardContent className="p-3 md:p-6 pt-0">
+            <div className="text-2xl md:text-3xl font-bold text-blue-500">
+              {waybills.filter(w => w.type === 'return' && w.status === 'outstanding').length}
+            </div>
+            <div className="text-xs md:text-sm text-muted-foreground">Pending Returns</div>
+            <p className="text-[10px] md:text-xs text-muted-foreground mt-2">Items awaiting processing</p>
+          </CardContent>
+        </Card>
+
+        {/* 4. Employee Quick Checkouts */}
+        <Card
+          className="border-0 shadow-soft hover:shadow-lg transition-all duration-300 cursor-pointer group relative overflow-hidden active:scale-[0.98]"
+          onClick={() => onNavigate('employee-analytics')}
+        >
+          <div className="absolute top-0 right-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <ShoppingCart className="h-16 md:h-24 w-16 md:w-24 text-purple-500" />
+          </div>
+          <CardHeader className="pb-2 p-3 md:p-6">
+            <CardTitle className="flex items-center gap-2 text-base md:text-xl">
+              <ShoppingCart className="h-5 w-5 md:h-6 md:w-6 text-purple-500" />
+              Checkouts
+            </CardTitle>
+            <CardDescription className="text-xs md:text-sm">Tool assignments</CardDescription>
+          </CardHeader>
+          <CardContent className="p-3 md:p-6 pt-0">
+            <div className="text-2xl md:text-3xl font-bold text-purple-500">{outstandingCheckouts}</div>
+            <div className="text-xs md:text-sm text-muted-foreground">Active</div>
+            <div className="mt-3 flex -space-x-2 overflow-hidden">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="inline-block h-5 w-5 md:h-6 md:w-6 rounded-full ring-2 ring-background bg-slate-200 flex items-center justify-center text-[8px] md:text-[10px] font-bold text-slate-500">
+                  U
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 5. Sites */}
+        <Card
+          className="border-0 shadow-soft hover:shadow-lg transition-all duration-300 cursor-pointer group relative overflow-hidden active:scale-[0.98]"
+          onClick={() => onNavigate('sites')}
+        >
+          <div className="absolute top-0 right-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <MapPin className="h-16 md:h-24 w-16 md:w-24 text-green-500" />
+          </div>
+          <CardHeader className="pb-2 p-3 md:p-6">
+            <CardTitle className="flex items-center gap-2 text-base md:text-xl">
+              <MapPin className="h-5 w-5 md:h-6 md:w-6 text-green-500" />
+              Sites
+            </CardTitle>
+            <CardDescription className="text-xs md:text-sm">Project locations</CardDescription>
+          </CardHeader>
+          <CardContent className="p-3 md:p-6 pt-0">
+            <div className="text-2xl md:text-3xl font-bold text-green-500">
+              {sites.filter(s => s.status === 'active').length}
+            </div>
+            <div className="text-xs md:text-sm text-muted-foreground">Active Sites</div>
+            <div className="flex items-center justify-between mt-2 pt-2 border-t">
+              <p className="text-[10px] md:text-xs text-muted-foreground">Total sites</p>
+              <Badge variant="outline" className="text-[10px] md:text-xs">
+                {sites.length}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Category Breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="border-0 shadow-soft animate-slide-up" style={{animationDelay: '0.6s'}}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-primary" />
-              Dewatering Equipment
-            </CardTitle>
-            <CardDescription>
-              {dewateringAssets.length} items - {dewateringAssets.reduce((sum, a) => sum + a.quantity, 0)} units
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {dewateringAssets.slice(0, 3).map(asset => (
-                <div key={asset.id} className="flex justify-between items-center">
-                  <span className="text-sm">{asset.name}</span>
-                  <span className={`text-sm font-medium ${
-                    asset.quantity === 0 ? 'text-destructive' : 
-                    asset.quantity < 10 ? 'text-warning' : 'text-success'
-                  }`}>
-                    {asset.quantity} {asset.unitOfMeasurement}
-                  </span>
-                </div>
-              ))}
-              {dewateringAssets.length > 3 && (
-                <div className="text-sm text-muted-foreground">
-                  +{dewateringAssets.length - 3} more items
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card className="border-0 shadow-soft animate-slide-up" style={{animationDelay: '0.7s'}}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-accent" />
-              Waterproofing Materials
-            </CardTitle>
-            <CardDescription>
-              {waterproofingAssets.length} items - {waterproofingAssets.reduce((sum, a) => sum + a.quantity, 0)} units
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {waterproofingAssets.slice(0, 3).map(asset => (
-                <div key={asset.id} className="flex justify-between items-center">
-                  <span className="text-sm">{asset.name}</span>
-                  <span className={`text-sm font-medium ${
-                    asset.quantity === 0 ? 'text-destructive' : 
-                    asset.quantity < 10 ? 'text-warning' : 'text-success'
-                  }`}>
-                    {asset.quantity} {asset.unitOfMeasurement}
-                  </span>
-                </div>
-              ))}
-              {waterproofingAssets.length > 3 && (
-                <div className="text-sm text-muted-foreground">
-                  +{waterproofingAssets.length - 3} more items
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+
+
+
+      {/* Notification Panel */}
+      <NotificationPanel
+        assets={assets}
+        sites={sites}
+        equipmentLogs={equipmentLogs}
+        employees={employees}
+        onQuickLogEquipment={onQuickLogEquipment}
+      />
+
+      {/* Category Breakdown - Hidden on very small screens, collapsible */}
+      <div className="hidden sm:grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
+        {renderCategoryCard("Dewatering", dewateringAssets, <Package className="h-5 w-5 text-primary" />, "dewatering", "0.6s")}
+        {renderCategoryCard("Waterproofing", waterproofingAssets, <CheckCircle className="h-5 w-5 text-accent" />, "waterproofing", "0.7s")}
+        {renderCategoryCard("Tiling", tilingAssets, <Package className="h-5 w-5 text-blue-500" />, "tiling", "0.8s")}
+        {renderCategoryCard("PPE", ppeAssets, <User className="h-5 w-5 text-orange-500" />, "ppe", "0.9s")}
+        {renderCategoryCard("Office", officeAssets, <FileText className="h-5 w-5 text-green-500" />, "office", "1.0s")}
       </div>
 
       {/* Equipment Requiring Logging */}
       {equipmentRequiringLogging.length > 0 && (
-        <Card className="border-0 shadow-soft animate-slide-up" style={{animationDelay: '0.8s'}}>
+        <Card className="border-0 shadow-soft">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Wrench className="h-5 w-5 text-primary" />
-              Equipment Requiring Logging
-            </CardTitle>
-            <CardDescription>
-              {equipmentRequiringLogging.length} equipment items across sites
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {equipmentRequiringLogging.map(equipment => {
-                const status = getLatestStatus(equipment.id);
-                const siteName = getSiteName(equipment);
-                const site = getSiteForEquipment(equipment);
-                
-                return (
-                  <Card 
-                    key={equipment.id} 
-                    className="border-0 shadow-soft hover:shadow-medium transition-all duration-300"
-                  >
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base flex items-center justify-between">
-                        <span className="truncate">{equipment.name}</span>
-                        <Badge 
-                          variant={status.active ? "default" : "secondary"}
-                          className="text-xs ml-2"
-                        >
-                          {status.active ? "Active" : "Inactive"}
-                        </Badge>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="text-sm space-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Site:</span>
-                          <span className="font-medium truncate ml-2">{siteName}</span>
-                        </div>
-                        {status.date && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Last Log:</span>
-                            <span className="font-medium text-xs">
-                              {format(new Date(status.date), 'MMM dd, yyyy')}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full gap-2"
-                        onClick={() => {
-                          if (site) {
-                            setSelectedEquipment(equipment);
-                            setSelectedSite(site);
-                            setShowAnalytics(true);
-                          }
-                        }}
-                        disabled={!site}
-                      >
-                        <BarChart3 className="h-4 w-4" />
-                        View Analytics
-                      </Button>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <CardTitle className="flex items-center gap-2">
+                  <Wrench className="h-5 w-5 text-primary" />
+                  Equipment Requiring Logging
+                </CardTitle>
+                <CardDescription>
+                  {equipmentRequiringLogging.length} equipment items across sites
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEquipmentLoggingExpanded(!isEquipmentLoggingExpanded)}
+              >
+                {isEquipmentLoggingExpanded ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
             </div>
-          </CardContent>
+          </CardHeader>
+          {isEquipmentLoggingExpanded && (
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {equipmentRequiringLogging.map((equipment, index) => {
+                  const status = getLatestStatus(equipment.id);
+                  const siteName = getSiteName(equipment);
+                  const site = getSiteForEquipment(equipment);
+
+                  return (
+                    <Card
+                      key={equipment.id || index}
+                      className="border-0 shadow-soft hover:shadow-medium transition-all duration-300"
+                    >
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center justify-between">
+                          <span className="truncate">{equipment.name}</span>
+                          <Badge
+                            variant={status.active ? "default" : "secondary"}
+                            className="text-xs ml-2"
+                          >
+                            {status.active ? "Active" : "Inactive"}
+                          </Badge>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="text-sm space-y-1">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Site:</span>
+                            <span className="font-medium truncate ml-2">{siteName}</span>
+                          </div>
+                          {status.date && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Last Log:</span>
+                              <span className="font-medium text-xs">
+                                {format(new Date(status.date), 'MMM dd, yyyy')}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full gap-2"
+                          onClick={() => {
+                            if (site) {
+                              setSelectedEquipment(equipment);
+                              setSelectedSite(site);
+                              setShowAnalytics(true);
+                            }
+                          }}
+                          disabled={!site}
+                        >
+                          <BarChart3 className="h-4 w-4" />
+                          View Analytics
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </CardContent>
+          )}
         </Card>
       )}
 
       {/* Recent Activity */}
-      <Card className="border-0 shadow-soft animate-slide-up" style={{animationDelay: '0.9s'}}>
+      <Card className="border-0 shadow-soft">
         <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Latest system activities and user actions</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Recent Activity</CardTitle>
+              <CardDescription>Latest system activities and user actions</CardDescription>
+            </div>
+            <Popover open={showDatePicker} onOpenChange={setShowDatePicker}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <CalendarIcon className="h-4 w-4" />
+                  {format(activityDateRange.from, "MMM dd")} - {format(activityDateRange.to, "MMM dd")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="range"
+                  selected={{ from: activityDateRange.from, to: activityDateRange.to }}
+                  onSelect={(range) => {
+                    if (range?.from && range?.to) {
+                      setActivityDateRange({ from: range.from, to: range.to });
+                      setShowDatePicker(false);
+                    }
+                  }}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {activities.slice(0, 5).map(activity => {
+            {filteredActivities.slice(0, 10).map((activity, index) => {
               // Format the action text to be more readable
               const formatAction = (action: string): string => {
                 return action
@@ -350,18 +647,18 @@ export const Dashboard = ({ assets, waybills, quickCheckouts, sites, equipmentLo
               // Get site name if entityId is a site ID
               const getDisplayEntityId = (entityId?: string): string => {
                 if (!entityId) return '';
-                
+
                 // Check if it's a site ID pattern and get the site name
                 const site = sites.find(s => s.id === entityId);
                 if (site) {
                   return site.name;
                 }
-                
+
                 return entityId;
               };
 
               return (
-                <div key={activity.id} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                <div key={activity.id || index} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                   <div>
                     <div className="font-medium flex items-center gap-2">
                       <User className="h-4 w-4 text-primary" />
@@ -385,10 +682,10 @@ export const Dashboard = ({ assets, waybills, quickCheckouts, sites, equipmentLo
                 </div>
               );
             })}
-            {activities.length === 0 && (
+            {filteredActivities.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
                 <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No recent activities</p>
+                <p>No activities in selected date range</p>
               </div>
             )}
           </div>
@@ -407,8 +704,8 @@ export const Dashboard = ({ assets, waybills, quickCheckouts, sites, equipmentLo
             <SiteMachineAnalytics
               site={selectedSite}
               equipment={[selectedEquipment]}
-              equipmentLogs={equipmentLogs.filter(log => 
-                log.equipmentId === selectedEquipment.id && 
+              equipmentLogs={equipmentLogs.filter(log =>
+                log.equipmentId === selectedEquipment.id &&
                 log.siteId === selectedSite.id
               )}
               selectedEquipmentId={selectedEquipment.id}

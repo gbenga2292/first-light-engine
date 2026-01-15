@@ -1,3 +1,5 @@
+import apiKeys from './apiKeys.js';
+
 /**
  * Database Configuration
  * 
@@ -23,6 +25,8 @@ const USE_DEFAULT_APP_DATA = false;
 // ===== CONFIGURATION OPTIONS =====
 
 const config = {
+  ...apiKeys,
+
   // Choose which database path to use:
   // 'network' - Use network/NAS storage (NETWORK_DB_PATH)
   // 'local' - Use custom local path (LOCAL_DB_PATH)
@@ -38,8 +42,8 @@ const config = {
   localPath: null,
 
   // Database filename (do not change unless you know what you're doing)
-  databaseFilename: 'genesis-glow.sqlite',
-  
+  databaseFilename: 'dcel.sqlite',
+
   // Lock file for preventing concurrent access (do not change)
   lockFilename: 'db.lock',
 
@@ -51,6 +55,20 @@ const config = {
 
   // Automatically backup before opening (recommended)
   autoBackup: true,
+  // ===== LOCAL LLM / llama.cpp SETTINGS =====
+  // Path to a local LLM binary (e.g., a llama.cpp wrapper or other local runner)
+  // Leave null if you want to use an HTTP wrapper or haven't installed a local model.
+  llamaBinaryPath: null,
+
+  // Path to the model file used by the local binary. Example: 'models/llama-7b.ggmlv3.q4_0.bin'
+  llamaModelPath: null,
+
+  // Extra args to pass to the binary (array). Example: ['-t', '4']
+  llamaArgs: null,
+
+  // Optional: local HTTP endpoint for an LLM wrapper (if you run a small local server)
+  // Example: 'http://127.0.0.1:8080/generate'
+  llamaLocalHttpUrl: null,
 };
 
 /**

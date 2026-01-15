@@ -58,6 +58,32 @@ export class ActionExecutor {
 
     const { name, quantity, unit, type } = intent.parameters;
 
+    // Check for missing critical parameters
+    if (!name) {
+      return {
+        success: false,
+        message: "I need to know which asset you'd like to add. What's the name?",
+        intent,
+        suggestedAction: { type: 'clarify' }
+      };
+    }
+
+    if (!quantity) {
+      return {
+        success: false,
+        message: `How many units of ${name} would you like to add?`,
+        intent,
+        suggestedAction: { type: 'clarify' }
+      };
+    }
+
+    // Show confirmation before executing
+    const confirmationMessage = `📋 **Confirm Asset Addition:**\n\n` +
+      `• Asset: ${name}\n` +
+      `• Quantity: ${quantity} ${unit || 'units'}\n` +
+      `• Category: ${type || 'equipment'}\n\n` +
+      `Should I proceed with adding this to inventory?`;
+
     const newAsset: any = {
       name,
       quantity: quantity || 0,
@@ -69,17 +95,30 @@ export class ActionExecutor {
       availableQuantity: quantity || 0
     };
 
-    const createdAsset = await this.executionContext.addAsset(newAsset);
+    // Execute with confirmation action
+    try {
+      const createdAsset = await this.executionContext.addAsset(newAsset);
 
-    return {
-      success: true,
-      message: `✅ Successfully added ${quantity} ${unit || 'units'} of ${name} to inventory!`,
-      intent,
-      executionResult: {
+      return {
         success: true,
-        data: createdAsset
-      }
-    };
+        message: `✅ Successfully added ${quantity} ${unit || 'units'} of ${name} to inventory!`,
+        intent,
+        executionResult: {
+          success: true,
+          data: createdAsset
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to add asset: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        intent,
+        executionResult: {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      };
+    }
   }
 
   private async executeCreateWaybill(intent: AIIntent): Promise<AIResponse> {
@@ -88,6 +127,34 @@ export class ActionExecutor {
     }
 
     const { siteId, siteName, items, driverId, vehicleId, purpose } = intent.parameters;
+
+    // Check for missing critical parameters
+    if (!siteName && !siteId) {
+      return {
+        success: false,
+        message: "Which site should this waybill go to?",
+        intent,
+        suggestedAction: { type: 'clarify' }
+      };
+    }
+
+    if (!items || items.length === 0) {
+      return {
+        success: false,
+        message: `What items should be included in the waybill for ${siteName}?`,
+        intent,
+        suggestedAction: { type: 'clarify' }
+      };
+    }
+
+    if (!driverId && !vehicleId) {
+      return {
+        success: false,
+        message: `Who will be driving this waybill to ${siteName}? (driver or vehicle required)`,
+        intent,
+        suggestedAction: { type: 'clarify' }
+      };
+    }
 
     const waybillData = {
       siteId,
@@ -100,28 +167,38 @@ export class ActionExecutor {
       status: 'pending'
     };
 
-    const createdWaybill = await this.executionContext.createWaybill(waybillData);
+    const itemSummary = items.map((i: any) => `${i.quantity || 1}x ${i.name}`).join(', ');
 
-    const itemSummary = items && items.length > 0 
-      ? items.map((i: any) => `${i.quantity || 1}x ${i.name}`).join(', ')
-      : 'items';
+    try {
+      const createdWaybill = await this.executionContext.createWaybill(waybillData);
 
-    return {
-      success: true,
-      message: `✅ Waybill created for ${siteName}! Sending: ${itemSummary}`,
-      intent,
-      suggestedAction: {
-        type: 'execute_action',
-        data: {
-          action: 'view_waybill',
-          waybillId: createdWaybill.id
-        }
-      },
-      executionResult: {
+      return {
         success: true,
-        data: createdWaybill
-      }
-    };
+        message: `✅ Waybill created for ${siteName}! Sending: ${itemSummary}`,
+        intent,
+        suggestedAction: {
+          type: 'execute_action',
+          data: {
+            action: 'view_waybill',
+            waybillId: createdWaybill.id
+          }
+        },
+        executionResult: {
+          success: true,
+          data: createdWaybill
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to create waybill: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        intent,
+        executionResult: {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      };
+    }
   }
 
   private async executeProcessReturn(intent: AIIntent): Promise<AIResponse> {
@@ -131,6 +208,25 @@ export class ActionExecutor {
 
     const { siteId, siteName, items } = intent.parameters;
 
+    // Check for missing critical parameters
+    if (!siteName && !siteId) {
+      return {
+        success: false,
+        message: "Which site is this return from?",
+        intent,
+        suggestedAction: { type: 'clarify' }
+      };
+    }
+
+    if (!items || items.length === 0) {
+      return {
+        success: false,
+        message: `What items are being returned from ${siteName}?`,
+        intent,
+        suggestedAction: { type: 'clarify' }
+      };
+    }
+
     const returnData = {
       siteId,
       siteName,
@@ -139,17 +235,31 @@ export class ActionExecutor {
       status: 'pending'
     };
 
-    const processedReturn = await this.executionContext.processReturn(returnData);
+    const itemSummary = items.map((i: any) => `${i.quantity || 1}x ${i.name}`).join(', ');
 
-    return {
-      success: true,
-      message: `✅ Return from ${siteName} has been processed!`,
-      intent,
-      executionResult: {
+    try {
+      const processedReturn = await this.executionContext.processReturn(returnData);
+
+      return {
         success: true,
-        data: processedReturn
-      }
-    };
+        message: `✅ Return from ${siteName} has been processed!\n📦 Items: ${itemSummary}`,
+        intent,
+        executionResult: {
+          success: true,
+          data: processedReturn
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to process return: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        intent,
+        executionResult: {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      };
+    }
   }
 
   private async executeCreateSite(intent: AIIntent): Promise<AIResponse> {
@@ -159,6 +269,16 @@ export class ActionExecutor {
 
     const { name, address } = intent.parameters;
 
+    // Check for missing critical parameters
+    if (!name) {
+      return {
+        success: false,
+        message: "What should the site be called?",
+        intent,
+        suggestedAction: { type: 'clarify' }
+      };
+    }
+
     const siteData = {
       name,
       address: address || '',
@@ -166,17 +286,29 @@ export class ActionExecutor {
       createdAt: new Date().toISOString()
     };
 
-    const createdSite = await this.executionContext.createSite(siteData);
+    try {
+      const createdSite = await this.executionContext.createSite(siteData);
 
-    return {
-      success: true,
-      message: `✅ Site "${name}" has been created successfully!`,
-      intent,
-      executionResult: {
+      return {
         success: true,
-        data: createdSite
-      }
-    };
+        message: `✅ Site "${name}" has been created successfully!${address ? `\n📍 Address: ${address}` : ''}`,
+        intent,
+        executionResult: {
+          success: true,
+          data: createdSite
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to create site: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        intent,
+        executionResult: {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      };
+    }
   }
 
   private executeCheckInventory(intent: AIIntent): AIResponse {

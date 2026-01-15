@@ -22,7 +22,7 @@ interface AssetListProps {
 
 export const AssetList = ({ assets, onEdit, onDelete }: AssetListProps) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterCategory, setFilterCategory] = useState<'all' | 'dewatering' | 'waterproofing'>('all');
+  const [filterCategory, setFilterCategory] = useState<'all' | 'dewatering' | 'waterproofing' | 'tiling' | 'ppe' | 'office'>('all');
   const [filterType, setFilterType] = useState<'all' | 'consumable' | 'non-consumable' | 'tools' | 'equipment'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'quantity' | 'category' | 'type' | 'location' | 'updatedAt'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -31,8 +31,8 @@ export const AssetList = ({ assets, onEdit, onDelete }: AssetListProps) => {
 
   const filteredAssets = assets.filter(asset => {
     const matchesSearch = asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         asset.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         asset.location?.toLowerCase().includes(searchTerm.toLowerCase());
+      asset.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      asset.location?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesCategory = filterCategory === 'all' || asset.category === filterCategory;
     const matchesType = filterType === 'all' || asset.type === filterType;
@@ -77,8 +77,8 @@ export const AssetList = ({ assets, onEdit, onDelete }: AssetListProps) => {
       'consumable': 'outline',
       'non-consumable': 'secondary'
     } as const;
-    
-    return <Badge variant={variants[type]}>{type}</Badge>;
+
+    return <Badge variant={variants[type]}>{type === 'non-consumable' ? 'Reuseables' : type}</Badge>;
   };
 
   const handleEditAsset = (asset: Asset) => {
@@ -113,7 +113,7 @@ export const AssetList = ({ assets, onEdit, onDelete }: AssetListProps) => {
       {/* Header */}
       <div className="text-center">
         <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-          Asset Inventory
+          Inventory
         </h1>
         <p className="text-muted-foreground mt-2">
           Manage and track all your assets in one place
@@ -133,7 +133,7 @@ export const AssetList = ({ assets, onEdit, onDelete }: AssetListProps) => {
                 className="pl-10 border-0 bg-muted/50 focus:bg-background"
               />
             </div>
-            
+
             <div className="flex gap-2">
               <Select value={filterCategory} onValueChange={(value: any) => setFilterCategory(value)}>
                 <SelectTrigger className="w-40 border-0 bg-muted/50">
@@ -143,6 +143,9 @@ export const AssetList = ({ assets, onEdit, onDelete }: AssetListProps) => {
                   <SelectItem value="all">All Categories</SelectItem>
                   <SelectItem value="dewatering">Dewatering</SelectItem>
                   <SelectItem value="waterproofing">Waterproofing</SelectItem>
+                  <SelectItem value="tiling">Tiling</SelectItem>
+                  <SelectItem value="ppe">PPE</SelectItem>
+                  <SelectItem value="office">Office</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -155,7 +158,7 @@ export const AssetList = ({ assets, onEdit, onDelete }: AssetListProps) => {
                   <SelectItem value="equipment">Equipment</SelectItem>
                   <SelectItem value="tools">Tools</SelectItem>
                   <SelectItem value="consumable">Consumable</SelectItem>
-                  <SelectItem value="non-consumable">Non-consumable</SelectItem>
+                  <SelectItem value="non-consumable">Reuseables</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -224,11 +227,11 @@ export const AssetList = ({ assets, onEdit, onDelete }: AssetListProps) => {
                         </div>
                       )}
                     </TableCell>
-                    
+
                     <TableCell>
                       {getTypeBadge(asset.type)}
                     </TableCell>
-                    
+
                     <TableCell>
                       {editingAsset === asset.id ? (
                         <Input
@@ -241,11 +244,11 @@ export const AssetList = ({ assets, onEdit, onDelete }: AssetListProps) => {
                         <span className="font-medium">{asset.quantity} {asset.unitOfMeasurement}</span>
                       )}
                     </TableCell>
-                    
+
                     <TableCell>
                       {getStatusBadge(asset.quantity)}
                     </TableCell>
-                    
+
                     <TableCell>
                       {editingAsset === asset.id ? (
                         <Input
@@ -257,13 +260,13 @@ export const AssetList = ({ assets, onEdit, onDelete }: AssetListProps) => {
                         <span className="text-sm">{asset.location || 'Not specified'}</span>
                       )}
                     </TableCell>
-                    
+
                     <TableCell>
                       <span className="text-sm text-muted-foreground">
                         {asset.updatedAt instanceof Date ? asset.updatedAt.toLocaleDateString() : new Date(asset.updatedAt).toLocaleDateString()}
                       </span>
                     </TableCell>
-                    
+
                     <TableCell>
                       {editingAsset === asset.id ? (
                         <div className="flex gap-1">
@@ -286,7 +289,7 @@ export const AssetList = ({ assets, onEdit, onDelete }: AssetListProps) => {
                               <Edit className="h-4 w-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               onClick={() => onDelete(asset)}
                               className="text-destructive"
                             >
@@ -301,13 +304,13 @@ export const AssetList = ({ assets, onEdit, onDelete }: AssetListProps) => {
                 ))}
               </TableBody>
             </Table>
-            
+
             {sortedAssets.length === 0 && (
               <div className="text-center py-12">
                 <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-muted-foreground">No assets found</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {searchTerm || filterCategory !== 'all' || filterType !== 'all' 
+                  {searchTerm || filterCategory !== 'all' || filterType !== 'all'
                     ? 'Try adjusting your search or filters'
                     : 'Add your first asset to get started'
                   }

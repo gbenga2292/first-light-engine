@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { logger } from '@/lib/logger';
+import { logActivity } from '@/utils/activityLogger';
+import { dataService } from '@/services/dataService';
 
 // User type and role definitions remain the same
 export type UserRole = 'admin' | 'data_entry_supervisor' | 'regulatory' | 'manager' | 'staff';
@@ -9,11 +11,9 @@ export interface User {
   username: string;
   role: UserRole;
   name: string;
-  email?: string;
   created_at: string;
   updated_at: string;
 }
-
 interface AuthContextType {
   isAuthenticated: boolean;
   currentUser: User | null;
@@ -21,8 +21,8 @@ interface AuthContextType {
   logout: () => void;
   hasPermission: (permission: string) => boolean;
   getUsers: () => Promise<User[]>;
-  createUser: (userData: { name: string; username: string; password: string; role: UserRole; email?: string }) => Promise<{ success: boolean; message?: string }>;
-  updateUser: (userId: string, userData: { name: string; username: string; role: UserRole; email?: string }) => Promise<{ success: boolean; message?: string }>;
+  createUser: (userData: { name: string; username: string; password: string; role: UserRole }) => Promise<{ success: boolean; message?: string }>;
+  updateUser: (userId: string, userData: { name: string; username: string; role: UserRole }) => Promise<{ success: boolean; message?: string }>;
   deleteUser: (userId: string) => Promise<{ success: boolean; message?: string }>;
 }
 
@@ -48,45 +48,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return saved ? JSON.parse(saved) : null;
   });
 
-  // Login: Supports two modes
-  // 1. Database authentication (primary) - when Electron database is available
-  // 2. Hardcoded admin fallback (secondary) - for testing without database
+  // Login: Uses unified dataService which automatically detects platform
+  // - Desktop (Electron): Uses local SQLite database
+  // - Mobile/Web: Uses Supabase PostgreSQL
   const login = async (username: string, password: string): Promise<{ success: boolean; message?: string }> => {
     try {
-      // Try database login first if available
-      if (window.db) {
-        const result = await window.db.login(username, password);
-        if (result.success && result.user) {
-          setCurrentUser(result.user);
-          setIsAuthenticated(true);
-          localStorage.setItem('isAuthenticated', 'true');
-          localStorage.setItem('currentUser', JSON.stringify(result.user));
-          return { success: true };
-        }
-        // If database login fails, fall through to hardcoded admin check
+      const result = await dataService.auth.login(username, password);
+
+      if (result.success && result.user) {
+        setCurrentUser(result.user);
+        setIsAuthenticated(true);
+        localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('currentUser', JSON.stringify(result.user));
+        await logActivity({
+          action: 'login',
+          entity: 'user',
+          entityId: result.user.id,
+          details: `User ${result.user.username} logged in`
+        });
+        return { success: true };
       }
-      
-      // Hardcoded admin fallback (only used if database login fails or unavailable)
+
+      // If dataService login fails, try hardcoded admin fallback
       if (username === 'admin' && password === 'admin123') {
         const hardcodedAdmin: User = {
           id: 'admin',
           username: 'admin',
           role: 'admin',
           name: 'Administrator',
-          email: 'admin@example.com',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
-        
+
         setCurrentUser(hardcodedAdmin);
         setIsAuthenticated(true);
         localStorage.setItem('isAuthenticated', 'true');
         localStorage.setItem('currentUser', JSON.stringify(hardcodedAdmin));
+        await logActivity({
+          action: 'login',
+          entity: 'user',
+          entityId: 'admin',
+          details: 'Admin user logged in (hardcoded fallback)'
+        });
         return { success: true };
       }
-      
-      // If we reach here, credentials were invalid
-      return { success: false, message: 'Invalid credentials' };
+
+      return { success: false, message: result.message || 'Invalid credentials' };
     } catch (error) {
       logger.error('Login error', error);
       return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
@@ -99,6 +106,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Clear authentication state from localStorage
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('currentUser');
+
+    if (currentUser) {
+      logActivity({
+        action: 'logout',
+        entity: 'user',
+        entityId: currentUser.id,
+        details: `User ${currentUser.username} logged out`
+      });
+    }
   };
 
   // Permission logic remains the same, as it's based on the role in currentUser state
@@ -106,47 +122,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) return false;
 
     const rolePermissions: Record<UserRole, string[]> = {
-        admin: ['*'], // Admin has all permissions
-        data_entry_supervisor: [
-          'read_assets', 'write_assets',
-          'read_waybills', 'write_waybills',
-          'read_returns', 'write_returns', 'delete_returns',
-          'read_sites',
-          'read_employees', 'write_employees', 'delete_employees',
-          'write_vehicles', 'delete_vehicles',
-          'manage_users',
-          'edit_company_info', 'view_activity_log', 'change_theme',
-          'print_documents'
-        ],
-        regulatory: [
-          'read_assets',
-          'read_waybills',
-          'read_returns',
-          'read_sites',
-          'read_reports',
-          'write_employees',
-          'write_vehicles',
-          'edit_company_info', 'change_theme',
-          'print_documents'
-        ],
-        manager: [
-          'read_assets', 'write_assets',
-          'read_waybills', 'write_waybills',
-          'read_returns', 'write_returns',
-          'read_sites',
-          'read_employees',
-          'read_reports',
-          'read_quick_checkouts', 'write_quick_checkouts',
-          'print_documents'
-        ],
-        staff: [
-          'read_assets',
-          'read_waybills',
-          'read_returns',
-          'read_sites',
-          'read_quick_checkouts'
-        ]
-      };
+      admin: ['*'], // Admin has all permissions
+      data_entry_supervisor: [
+        'read_assets', 'write_assets',
+        'read_waybills', 'write_waybills',
+        'read_returns', 'write_returns', 'delete_returns',
+        'read_sites',
+        'read_employees', 'write_employees', // removed delete_employees
+        'write_vehicles', // removed delete_vehicles
+        'read_quick_checkouts', 'write_quick_checkouts', // Added access but no delete
+        'edit_company_info', 'view_activity_log', 'change_theme',
+        'print_documents'
+      ],
+      regulatory: [
+        'read_assets',
+        'read_waybills',
+        'read_returns',
+        'read_sites',
+        'read_reports',
+        'read_employees', // Changed from write to read
+        'read_quick_checkouts', // Added read-only access
+        'edit_company_info', 'change_theme',
+        'print_documents'
+      ],
+      manager: [
+        'read_assets', 'write_assets',
+        'read_waybills', 'write_waybills',
+        'read_returns', 'write_returns', 'delete_returns', // Matches data_entry_supervisor
+        'read_sites',
+        'read_employees', 'write_employees', 'delist_employees', // Manager can delist
+        'read_reports',
+        'read_quick_checkouts', 'write_quick_checkouts', // Manager can write, but NO delete
+        'write_vehicles', 'delete_vehicles', // Manager can delete vehicles
+        'edit_company_info', 'view_activity_log', 'change_theme', // Matches data_entry_supervisor
+        'print_documents'
+      ],
+      staff: [
+        'read_assets', 'write_assets',
+        'read_waybills', 'write_waybills',
+        'read_returns',
+        'read_sites',
+        'read_quick_checkouts'
+      ]
+    };
 
     const userPermissions = rolePermissions[currentUser.role] || [];
     return userPermissions.includes('*') || userPermissions.includes(permission);
@@ -154,22 +172,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const getUsers = async (): Promise<User[]> => {
     try {
-      if (!window.db) {
-        return [];
-      }
-      return await window.db.getUsers();
+      return await dataService.auth.getUsers();
     } catch (error) {
       logger.error('Get users error', error);
       return [];
     }
   };
 
-  const createUser = async (userData: { name: string; username: string; password: string; role: UserRole; email?: string }): Promise<{ success: boolean; message?: string }> => {
+  const createUser = async (userData: { name: string; username: string; password: string; role: UserRole }): Promise<{ success: boolean; message?: string }> => {
     try {
-      if (!window.db) {
-        return { success: false, message: 'Database not available' };
+      const result = await dataService.auth.createUser(userData);
+      if (result.success) {
+        await logActivity({
+          action: 'create_user',
+          entity: 'user',
+          details: `Created user ${userData.username} (${userData.role})`
+        });
       }
-      const result = await window.db.createUser(userData);
       return result;
     } catch (error) {
       logger.error('Create user error', error);
@@ -177,12 +196,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateUser = async (userId: string, userData: { name: string; username: string; role: UserRole; email?: string; password?: string }): Promise<{ success: boolean; message?: string }> => {
+  const updateUser = async (userId: string, userData: { name: string; username: string; role: UserRole; password?: string }): Promise<{ success: boolean; message?: string }> => {
     try {
-      if (!window.db) {
-        return { success: false, message: 'Database not available' };
+      const result = await dataService.auth.updateUser(userId, userData);
+      if (result.success) {
+        await logActivity({
+          action: 'update_user',
+          entity: 'user',
+          entityId: userId,
+          details: `Updated user ${userData.username}`
+        });
       }
-      const result = await window.db.updateUser(userId, userData);
       return result;
     } catch (error) {
       logger.error('Update user error', error);
@@ -192,10 +216,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteUser = async (userId: string): Promise<{ success: boolean; message?: string }> => {
     try {
-      if (!window.db) {
-        return { success: false, message: 'Database not available' };
+      const result = await dataService.auth.deleteUser(userId);
+      if (result.success) {
+        await logActivity({
+          action: 'delete_user',
+          entity: 'user',
+          entityId: userId,
+          details: `Deleted user ${userId}`
+        });
       }
-      const result = await window.db.deleteUser(userId);
       return result;
     } catch (error) {
       logger.error('Delete user error', error);
