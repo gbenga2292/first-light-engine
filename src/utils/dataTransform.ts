@@ -8,8 +8,8 @@ export function transformAssetFromDB(dbAsset: any): any {
   let siteQuantities = {};
   if (dbAsset.site_quantities) {
     try {
-      siteQuantities = typeof dbAsset.site_quantities === 'string' 
-        ? JSON.parse(dbAsset.site_quantities) 
+      siteQuantities = typeof dbAsset.site_quantities === 'string'
+        ? JSON.parse(dbAsset.site_quantities)
         : dbAsset.site_quantities;
     } catch {
       siteQuantities = {};
@@ -58,10 +58,17 @@ export function transformAssetToDB(asset: any): any {
     condition: asset.condition,
     missing_count: asset.missingCount,
     damaged_count: asset.damagedCount,
+    used_count: asset.usedCount,
     low_stock_level: asset.lowStockLevel,
     critical_stock_level: asset.criticalStockLevel,
     purchase_date: asset.purchaseDate,
     cost: asset.cost,
+    // Equipment/Machine specific fields
+    model: asset.model,
+    serial_number: asset.serialNumber,
+    service_interval: asset.serviceInterval,
+    deployment_date: asset.deploymentDate,
+    requires_logging: asset.requiresLogging,
     power_source: asset.powerSource,
     fuel_capacity: asset.fuelCapacity,
     fuel_consumption_rate: asset.fuelConsumptionRate,
@@ -282,12 +289,16 @@ export function transformActivityFromDB(dbActivity: any): any {
 export function transformQuickCheckoutToDB(checkout: any): any {
   return {
     asset_id: parseInt(checkout.assetId) || checkout.asset_id,
+    asset_name: checkout.assetName || checkout.asset_name,
+    employee: checkout.employee,
     employee_id: checkout.employeeId ? parseInt(checkout.employeeId) : checkout.employee_id || null,
     quantity: checkout.quantity,
     returned_quantity: checkout.returnedQuantity || 0,
     checkout_date: checkout.checkoutDate instanceof Date ? checkout.checkoutDate.toISOString() : checkout.checkoutDate,
     expected_return_days: checkout.expectedReturnDays || 0,
+    return_date: checkout.returnDate ? (checkout.returnDate instanceof Date ? checkout.returnDate.toISOString() : checkout.returnDate) : null,
     status: checkout.status || 'outstanding',
+    notes: checkout.notes || null,
   };
 }
 
@@ -301,10 +312,12 @@ export function transformQuickCheckoutFromDB(dbCheckout: any): any {
     assetId: String(dbCheckout.asset_id),
     assetName: dbCheckout.asset_name, // This comes from a join if available
     employeeId: dbCheckout.employee_id ? String(dbCheckout.employee_id) : undefined,
-    employee: dbCheckout.employee_name, // This comes from a join if available
+    employee: dbCheckout.employee_name || dbCheckout.employee, // employee_name from join, fallback to employee field
     returnedQuantity: dbCheckout.returned_quantity || 0,
     checkoutDate: new Date(dbCheckout.checkout_date),
+    returnDate: dbCheckout.return_date ? new Date(dbCheckout.return_date) : undefined,
     expectedReturnDays: dbCheckout.expected_return_days,
+    notes: dbCheckout.notes,
     createdAt: dbCheckout.created_at ? new Date(dbCheckout.created_at) : new Date(),
     updatedAt: dbCheckout.updated_at ? new Date(dbCheckout.updated_at) : new Date(),
   };
@@ -370,5 +383,102 @@ export function transformVehicleFromDB(dbVehicle: any): any {
     registrationNumber: dbVehicle.registration_number,
     createdAt: dbVehicle.created_at ? new Date(dbVehicle.created_at) : new Date(),
     updatedAt: dbVehicle.updated_at ? new Date(dbVehicle.updated_at) : new Date(),
+  };
+}
+/**
+ * Transform consumable log from database format to frontend format
+ */
+export function transformConsumableLogFromDB(dbLog: any): any {
+  return {
+    ...dbLog,
+    id: String(dbLog.id), // Ensure ID is string
+    consumableId: String(dbLog.consumable_id), // Always string
+    consumableName: dbLog.consumable_name,
+    siteId: String(dbLog.site_id), // Always string
+    date: new Date(dbLog.date),
+    quantityUsed: dbLog.quantity_used,
+    quantityRemaining: dbLog.quantity_remaining,
+    unit: dbLog.unit,
+    usedFor: dbLog.used_for,
+    usedBy: dbLog.used_by,
+    notes: dbLog.notes,
+    createdAt: new Date(dbLog.created_at),
+    updatedAt: new Date(dbLog.updated_at),
+  };
+}
+
+/**
+ * Transform consumable log from frontend format to database format
+ */
+export function transformConsumableLogToDB(log: any): any {
+  return {
+    id: log.id,
+    consumable_id: log.consumableId,
+    consumable_name: log.consumableName,
+    site_id: log.siteId,
+    date: log.date instanceof Date ? log.date.toISOString() : log.date,
+    quantity_used: log.quantityUsed,
+    quantity_remaining: log.quantityRemaining,
+    unit: log.unit,
+    used_for: log.usedFor,
+    used_by: log.usedBy,
+    notes: log.notes,
+    created_at: log.createdAt instanceof Date ? log.createdAt.toISOString() : log.createdAt,
+    updated_at: log.updatedAt instanceof Date ? log.updatedAt.toISOString() : log.updatedAt,
+  };
+}
+
+/**
+ * Transform maintenance log from database format to frontend format
+ */
+export function transformMaintenanceLogFromDB(dbLog: any): any {
+  return {
+    ...dbLog,
+    id: String(dbLog.id),
+    assetId: String(dbLog.machine_id),
+    machineId: String(dbLog.machine_id),
+    maintenanceType: dbLog.maintenance_type,
+    reason: dbLog.reason,
+    dateStarted: new Date(dbLog.date_started),
+    dateCompleted: dbLog.date_completed ? new Date(dbLog.date_completed) : undefined,
+    machineActiveAtTime: Boolean(dbLog.machine_active_at_time),
+    downtime: dbLog.downtime,
+    workDone: dbLog.work_done,
+    partsReplaced: dbLog.parts_replaced,
+    technician: dbLog.technician,
+    cost: dbLog.cost,
+    location: dbLog.location,
+    remarks: dbLog.remarks,
+    serviceReset: Boolean(dbLog.service_reset),
+    nextServiceDue: dbLog.next_service_due ? new Date(dbLog.next_service_due) : undefined,
+    createdAt: new Date(dbLog.created_at),
+    updatedAt: new Date(dbLog.updated_at),
+  };
+}
+
+/**
+ * Transform maintenance log from frontend format to database format
+ */
+export function transformMaintenanceLogToDB(log: any): any {
+  const assetId = log.machineId || log.assetId;
+  return {
+    id: log.id,
+    machine_id: assetId,
+    maintenance_type: log.maintenanceType,
+    reason: log.reason,
+    date_started: log.dateStarted instanceof Date ? log.dateStarted.toISOString() : log.dateStarted,
+    date_completed: log.dateCompleted ? (log.dateCompleted instanceof Date ? log.dateCompleted.toISOString() : log.dateCompleted) : null,
+    machine_active_at_time: log.machineActiveAtTime,
+    downtime: log.downtime,
+    work_done: log.workDone,
+    parts_replaced: log.partsReplaced,
+    technician: log.technician,
+    cost: log.cost,
+    location: log.location,
+    remarks: log.remarks,
+    service_reset: log.serviceReset,
+    next_service_due: log.nextServiceDue ? (log.nextServiceDue instanceof Date ? log.nextServiceDue.toISOString() : log.nextServiceDue) : null,
+    created_at: log.createdAt instanceof Date ? log.createdAt.toISOString() : log.createdAt,
+    updated_at: log.updatedAt instanceof Date ? log.updatedAt.toISOString() : log.updatedAt,
   };
 }

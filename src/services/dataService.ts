@@ -22,6 +22,8 @@ import type {
     Waybill
 } from '@/types/asset';
 import type { EquipmentLog } from '@/types/equipment';
+import type { ConsumableUsageLog } from '@/types/consumable';
+import type { MaintenanceLog } from '@/types/maintenance';
 import {
     transformAssetToDB,
     transformAssetFromDB,
@@ -41,6 +43,10 @@ import {
     transformSiteTransactionFromDB,
     transformVehicleToDB,
     transformVehicleFromDB,
+    transformConsumableLogToDB,
+    transformConsumableLogFromDB,
+    transformMaintenanceLogToDB,
+    transformMaintenanceLogFromDB,
 } from '@/utils/dataTransform';
 
 // ============================================================================
@@ -169,7 +175,11 @@ export const assetService = {
             .select('*')
             .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Supabase getAssets error:', error);
+            throw error;
+        }
+        console.log('Supabase getAssets data:', data);
         return (data || []).map(transformAssetFromDB);
     },
 
@@ -509,6 +519,106 @@ export const equipmentLogService = {
 };
 
 // ============================================================================
+// CONSUMABLE LOGS
+// ============================================================================
+
+export const consumableLogService = {
+    getConsumableLogs: async (): Promise<ConsumableUsageLog[]> => {
+        const { data, error } = await supabase
+            .from('consumable_logs')
+            .select('*')
+            .order('date', { ascending: false });
+
+        if (error) throw error;
+        return (data || []).map(transformConsumableLogFromDB);
+    },
+
+    createConsumableLog: async (log: Partial<ConsumableUsageLog>): Promise<ConsumableUsageLog> => {
+        const dbLog = transformConsumableLogToDB(log);
+        const { data, error } = await supabase
+            .from('consumable_logs')
+            .insert(dbLog)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return transformConsumableLogFromDB(data);
+    },
+
+    updateConsumableLog: async (id: string, log: Partial<ConsumableUsageLog>): Promise<ConsumableUsageLog> => {
+        const dbLog = transformConsumableLogToDB(log);
+        const { data, error } = await supabase
+            .from('consumable_logs')
+            .update({ ...dbLog, updated_at: new Date().toISOString() })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return transformConsumableLogFromDB(data);
+    },
+
+    deleteConsumableLog: async (id: string): Promise<void> => {
+        const { error } = await supabase
+            .from('consumable_logs')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+    }
+};
+
+// ============================================================================
+// MAINTENANCE LOGS
+// ============================================================================
+
+export const maintenanceLogService = {
+    getMaintenanceLogs: async (): Promise<MaintenanceLog[]> => {
+        const { data, error } = await supabase
+            .from('maintenance_logs')
+            .select('*')
+            .order('date_started', { ascending: false });
+
+        if (error) throw error;
+        return (data || []).map(transformMaintenanceLogFromDB);
+    },
+
+    createMaintenanceLog: async (log: Partial<MaintenanceLog>): Promise<MaintenanceLog> => {
+        const dbLog = transformMaintenanceLogToDB(log);
+        const { data, error } = await supabase
+            .from('maintenance_logs')
+            .insert(dbLog)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return transformMaintenanceLogFromDB(data);
+    },
+
+    updateMaintenanceLog: async (id: string, log: Partial<MaintenanceLog>): Promise<MaintenanceLog> => {
+        const dbLog = transformMaintenanceLogToDB(log);
+        const { data, error } = await supabase
+            .from('maintenance_logs')
+            .update({ ...dbLog, updated_at: new Date().toISOString() })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return transformMaintenanceLogFromDB(data);
+    },
+
+    deleteMaintenanceLog: async (id: string): Promise<void> => {
+        const { error } = await supabase
+            .from('maintenance_logs')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+    }
+};
+
+// ============================================================================
 // COMPANY SETTINGS
 // ============================================================================
 
@@ -627,7 +737,56 @@ export const dataService = {
     quickCheckouts: quickCheckoutService,
     waybills: waybillService,
     equipmentLogs: equipmentLogService,
+    consumableLogs: consumableLogService,
+    maintenanceLogs: maintenanceLogService,
     companySettings: companySettingsService,
     siteTransactions: siteTransactionService,
-    activities: activityService
+    activities: activityService,
+
+    // ============================================================================
+    // METRICS SNAPSHOTS
+    // ============================================================================
+    metrics: {
+        getTodaySnapshot: async () => {
+            const today = new Date().toISOString().split('T')[0];
+            const { data, error } = await supabase
+                .from('metrics_snapshots')
+                .select('*')
+                .eq('snapshot_date', today)
+                .maybeSingle();
+
+            if (error) throw error;
+            return data;
+        },
+
+        createSnapshot: async (data: any) => {
+            const today = new Date().toISOString().split('T')[0];
+            const { error } = await supabase
+                .from('metrics_snapshots')
+                .upsert({
+                    snapshot_date: today,
+                    total_assets: data.total_assets || 0,
+                    total_quantity: data.total_quantity || 0,
+                    outstanding_waybills: data.outstanding_waybills || 0,
+                    outstanding_checkouts: data.outstanding_checkouts || 0,
+                    out_of_stock: data.out_of_stock || 0,
+                    low_stock: data.low_stock || 0
+                }, { onConflict: 'snapshot_date' });
+
+            if (error) throw error;
+        },
+
+        getHistory: async (days: number = 7) => {
+            const date = new Date();
+            date.setDate(date.getDate() - days);
+            const { data, error } = await supabase
+                .from('metrics_snapshots')
+                .select('*')
+                .gte('snapshot_date', date.toISOString().split('T')[0])
+                .order('snapshot_date', { ascending: true });
+
+            if (error) throw error;
+            return data || [];
+        }
+    }
 };

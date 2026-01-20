@@ -304,11 +304,17 @@ export const QuickCheckoutForm = ({
                   const asset = assets.find(a => a.id === checkout.assetId);
                   const isConsumable = asset?.type === 'consumable' || asset?.type === 'non-consumable';
 
+                  // Fallback for missing names
+                  const displayAssetName = checkout.assetName || asset?.name || 'Unknown Asset';
+                  const displayEmployeeName = checkout.employee ||
+                    (checkout.employeeId ? employees.find(e => e.id === checkout.employeeId)?.name : null) ||
+                    'Unknown Employee';
+
                   return (
                     <div key={`${checkout.id}-${index}`} className="border rounded-lg p-4 bg-muted/30">
                       <div className="flex justify-between items-start mb-2">
                         <div>
-                          <h4 className="font-medium">{checkout.assetName}</h4>
+                          <h4 className="font-medium">{displayAssetName}</h4>
                           <p className="text-sm text-muted-foreground">
                             Quantity: {checkout.quantity} {checkout.returnedQuantity > 0 && `(Returned: ${checkout.returnedQuantity})`}
                           </p>
@@ -319,7 +325,7 @@ export const QuickCheckoutForm = ({
                       <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
                         <div className="flex items-center gap-1">
                           <User className="h-3 w-3" />
-                          {checkout.employee}
+                          {displayEmployeeName}
                         </div>
                         <div className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
@@ -424,22 +430,30 @@ export const QuickCheckoutForm = ({
               </div>
             ) : (
               <div className="space-y-3">
-                {filteredActivity.slice(0, 10).map((checkout, index) => (
-                  <div key={`${checkout.id}-${index}`} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
-                    <div>
-                      <p className="font-medium">{checkout.assetName}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {checkout.employee} • {checkout.quantity} units
-                      </p>
+                {filteredActivity.slice(0, 10).map((checkout, index) => {
+                  const asset = assets.find(a => a.id === checkout.assetId);
+                  const displayAssetName = checkout.assetName || asset?.name || 'Unknown Asset';
+                  const displayEmployeeName = checkout.employee ||
+                    (checkout.employeeId ? employees.find(e => e.id === checkout.employeeId)?.name : null) ||
+                    'Unknown Employee';
+
+                  return (
+                    <div key={`${checkout.id}-${index}`} className="flex justify-between items-start p-3 bg-muted/30 rounded-lg">
+                      <div>
+                        <p className="font-medium">{displayAssetName}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {displayEmployeeName} • {checkout.quantity} units
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        {getStatusBadge(checkout.status)}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {checkout.checkoutDate.toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      {getStatusBadge(checkout.status)}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {checkout.checkoutDate.toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             );
           })()}

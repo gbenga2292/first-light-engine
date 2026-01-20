@@ -56,6 +56,7 @@ interface SitesPageProps {
   onUpdateEquipmentLog: (log: EquipmentLog) => void;
   onAddConsumableLog: (log: ConsumableUsageLog) => void;
   onUpdateConsumableLog: (log: ConsumableUsageLog) => void;
+  onViewSiteInventory?: (site: Site) => void;
   aiPrefillData?: any;
 }
 
@@ -75,7 +76,7 @@ const defaultCompanySettings: CompanySettings = {
   },
 };
 
-export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transactions, equipmentLogs, consumableLogs, siteInventory, getSiteInventory, companySettings, onAddSite, onUpdateSite, onDeleteSite, onUpdateAsset, onCreateWaybill, onCreateReturnWaybill, onProcessReturn, onAddEquipmentLog, onUpdateEquipmentLog, onAddConsumableLog, onUpdateConsumableLog, aiPrefillData }: SitesPageProps) => {
+export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transactions, equipmentLogs, consumableLogs, siteInventory, getSiteInventory, companySettings, onAddSite, onUpdateSite, onDeleteSite, onUpdateAsset, onCreateWaybill, onCreateReturnWaybill, onProcessReturn, onAddEquipmentLog, onUpdateEquipmentLog, onAddConsumableLog, onUpdateConsumableLog, onViewSiteInventory, aiPrefillData }: SitesPageProps) => {
   // Merge provided companySettings with defaults, only using non-empty values from database
   const effectiveCompanySettings: CompanySettings = {
     ...defaultCompanySettings,
@@ -216,8 +217,12 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
   };
 
   const handleShowItems = (site: Site) => {
-    setSelectedSite(site);
-    setShowItemsModal(true);
+    if (onViewSiteInventory) {
+      onViewSiteInventory(site);
+    } else {
+      setSelectedSite(site);
+      setShowItemsModal(true);
+    }
   };
 
   const handleCreateReturnWaybill = (site: Site) => {
