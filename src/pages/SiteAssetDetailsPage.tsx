@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Site, Asset, Employee, Waybill } from "@/types/asset";
+import { Site, Asset, Employee, Waybill, CompanySettings } from "@/types/asset";
 import { EquipmentLog, DowntimeEntry } from "@/types/equipment";
 import { ConsumableUsageLog } from "@/types/consumable";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,7 @@ interface SiteAssetDetailsPageProps {
     consumableLogs: ConsumableUsageLog[];
     waybills: Waybill[];
     employees: Employee[];
-    companySettings?: CompanySettingsType;
+    companySettings?: CompanySettings;
     onBack: () => void;
     onAddEquipmentLog: (log: EquipmentLog) => Promise<void> | void;
     onUpdateEquipmentLog: (log: EquipmentLog) => Promise<void> | void;
