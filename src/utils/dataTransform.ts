@@ -285,39 +285,41 @@ export function transformActivityFromDB(dbActivity: any): any {
 
 /**
  * Transform quick checkout from frontend format to database format
+ * Matches Supabase quick_checkouts table schema:
+ * asset_id, employee_id, quantity, checkout_date, expected_return_days, returned_quantity, status
  */
 export function transformQuickCheckoutToDB(checkout: any): any {
   return {
     asset_id: parseInt(checkout.assetId) || checkout.asset_id,
-    asset_name: checkout.assetName || checkout.asset_name,
-    employee: checkout.employee,
-    employee_id: checkout.employeeId ? parseInt(checkout.employeeId) : checkout.employee_id || null,
+    employee_id: checkout.employeeId ? parseInt(checkout.employeeId) : (checkout.employee_id ? parseInt(checkout.employee_id) : null),
     quantity: checkout.quantity,
     returned_quantity: checkout.returnedQuantity || 0,
     checkout_date: checkout.checkoutDate instanceof Date ? checkout.checkoutDate.toISOString() : checkout.checkoutDate,
     expected_return_days: checkout.expectedReturnDays || 0,
-    return_date: checkout.returnDate ? (checkout.returnDate instanceof Date ? checkout.returnDate.toISOString() : checkout.returnDate) : null,
     status: checkout.status || 'outstanding',
-    notes: checkout.notes || null,
   };
 }
 
 /**
  * Transform quick checkout from database format to frontend format
+ * Enriches data with asset/employee names from joins
  */
-export function transformQuickCheckoutFromDB(dbCheckout: any): any {
+export function transformQuickCheckoutFromDB(dbCheckout: any, assets?: any[], employees?: any[]): any {
+  // Find asset name from assets array if provided
+  const asset = assets?.find(a => String(a.id) === String(dbCheckout.asset_id));
+  const employee = employees?.find(e => String(e.id) === String(dbCheckout.employee_id));
+  
   return {
-    ...dbCheckout,
     id: String(dbCheckout.id),
     assetId: String(dbCheckout.asset_id),
-    assetName: dbCheckout.asset_name, // This comes from a join if available
+    assetName: asset?.name || `Asset #${dbCheckout.asset_id}`,
     employeeId: dbCheckout.employee_id ? String(dbCheckout.employee_id) : undefined,
-    employee: dbCheckout.employee_name || dbCheckout.employee, // employee_name from join, fallback to employee field
+    employee: employee?.name || (dbCheckout.employee_id ? `Employee #${dbCheckout.employee_id}` : 'Unknown'),
+    quantity: dbCheckout.quantity,
     returnedQuantity: dbCheckout.returned_quantity || 0,
     checkoutDate: new Date(dbCheckout.checkout_date),
-    returnDate: dbCheckout.return_date ? new Date(dbCheckout.return_date) : undefined,
     expectedReturnDays: dbCheckout.expected_return_days,
-    notes: dbCheckout.notes,
+    status: dbCheckout.status || 'outstanding',
     createdAt: dbCheckout.created_at ? new Date(dbCheckout.created_at) : new Date(),
     updatedAt: dbCheckout.updated_at ? new Date(dbCheckout.updated_at) : new Date(),
   };
