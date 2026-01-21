@@ -374,13 +374,28 @@ export const vehicleService = {
 
 export const quickCheckoutService = {
     getQuickCheckouts: async (): Promise<QuickCheckout[]> => {
-        const { data, error } = await supabase
-            .from('quick_checkouts')
-            .select('*')
-            .order('checkout_date', { ascending: false });
+        // Fetch checkouts, assets, and employees to enrich the data
+        const [checkoutsResult, assetsResult, employeesResult] = await Promise.all([
+            supabase
+                .from('quick_checkouts')
+                .select('*')
+                .order('checkout_date', { ascending: false }),
+            supabase
+                .from('assets')
+                .select('id, name'),
+            supabase
+                .from('employees')
+                .select('id, name')
+        ]);
 
-        if (error) throw error;
-        return (data || []).map(transformQuickCheckoutFromDB);
+        if (checkoutsResult.error) throw checkoutsResult.error;
+        
+        const assets = assetsResult.data || [];
+        const employees = employeesResult.data || [];
+        
+        return (checkoutsResult.data || []).map(checkout => 
+            transformQuickCheckoutFromDB(checkout, assets, employees)
+        );
     },
 
     createQuickCheckout: async (checkout: Partial<QuickCheckout>): Promise<QuickCheckout> => {
@@ -392,7 +407,20 @@ export const quickCheckoutService = {
             .single();
 
         if (error) throw error;
-        return transformQuickCheckoutFromDB(data);
+        
+        // Fetch asset and employee for enrichment
+        const [assetResult, employeeResult] = await Promise.all([
+            supabase.from('assets').select('id, name').eq('id', data.asset_id).single(),
+            data.employee_id 
+                ? supabase.from('employees').select('id, name').eq('id', data.employee_id).single()
+                : Promise.resolve({ data: null })
+        ]);
+        
+        return transformQuickCheckoutFromDB(
+            data, 
+            assetResult.data ? [assetResult.data] : [], 
+            employeeResult.data ? [employeeResult.data] : []
+        );
     },
 
     updateQuickCheckout: async (id: string | number, checkout: Partial<QuickCheckout>): Promise<QuickCheckout> => {
@@ -405,7 +433,20 @@ export const quickCheckoutService = {
             .single();
 
         if (error) throw error;
-        return transformQuickCheckoutFromDB(data);
+        
+        // Fetch asset and employee for enrichment
+        const [assetResult, employeeResult] = await Promise.all([
+            supabase.from('assets').select('id, name').eq('id', data.asset_id).single(),
+            data.employee_id 
+                ? supabase.from('employees').select('id, name').eq('id', data.employee_id).single()
+                : Promise.resolve({ data: null })
+        ]);
+        
+        return transformQuickCheckoutFromDB(
+            data, 
+            assetResult.data ? [assetResult.data] : [], 
+            employeeResult.data ? [employeeResult.data] : []
+        );
     },
 
     deleteQuickCheckout: async (id: string | number): Promise<void> => {

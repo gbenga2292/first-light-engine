@@ -38,7 +38,7 @@ export const QuickCheckoutForm = ({
   const [formData, setFormData] = useState({
     assetId: '',
     quantity: 1,
-    employee: '',
+    employeeId: '',
     expectedReturnDays: 7
   });
 
@@ -72,16 +72,21 @@ export const QuickCheckoutForm = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.assetId || !formData.employee) {
+    if (!formData.assetId || !formData.employeeId) {
       return;
     }
 
     const asset = assets.find(a => a.id === formData.assetId);
-    if (!asset) return;
+    const selectedEmployee = employees.find(emp => emp.id === formData.employeeId);
+    if (!asset || !selectedEmployee) return;
 
     const checkoutData: Omit<QuickCheckout, 'id'> = {
-      ...formData,
+      assetId: formData.assetId,
       assetName: asset.name,
+      quantity: formData.quantity,
+      expectedReturnDays: formData.expectedReturnDays,
+      employeeId: formData.employeeId,
+      employee: selectedEmployee.name,
       checkoutDate: new Date(),
       status: 'outstanding',
       returnedQuantity: 0
@@ -93,7 +98,7 @@ export const QuickCheckoutForm = ({
     setFormData({
       assetId: '',
       quantity: 1,
-      employee: '',
+      employeeId: '',
       expectedReturnDays: 7
     });
   };
@@ -248,15 +253,15 @@ export const QuickCheckoutForm = ({
               <div className="space-y-2">
                 <Label htmlFor="employee">Employee Name *</Label>
                 <Select
-                  value={formData.employee}
-                  onValueChange={(value) => setFormData({ ...formData, employee: value })}
+                  value={formData.employeeId}
+                  onValueChange={(value) => setFormData({ ...formData, employeeId: value })}
                 >
                   <SelectTrigger className="border-0 bg-muted/50 focus:bg-background transition-all duration-300">
                     <SelectValue placeholder="Select employee" />
                   </SelectTrigger>
                   <SelectContent>
                     {employees.map((employee, index) => (
-                      <SelectItem key={`${employee.id}-${index}`} value={employee.name}>
+                      <SelectItem key={`${employee.id}-${index}`} value={employee.id}>
                         {employee.name} ({employee.role})
                       </SelectItem>
                     ))}
@@ -272,7 +277,7 @@ export const QuickCheckoutForm = ({
               <Button
                 type="submit"
                 className="w-full bg-gradient-primary hover:scale-105 transition-all duration-300 shadow-medium"
-                disabled={!formData.assetId || !formData.employee || !hasPermission('write_quick_checkouts')}
+                disabled={!formData.assetId || !formData.employeeId || !hasPermission('write_quick_checkouts')}
               >
                 <ShoppingCart className="h-4 w-4 mr-2" />
                 Checkout Item
