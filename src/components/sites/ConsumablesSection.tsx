@@ -51,6 +51,9 @@ export const ConsumablesSection = ({
   const [isOpen, setIsOpen] = useState(true);
 
 
+  // Use String() for safe comparison
+  const siteId = String(site.id);
+
   // Filter consumables and non-consumables at the site (INCLUDING depleted/zero and historical via waybills/logs)
   const siteConsumables = assets.filter(asset => {
     // Include only consumable types (no reuseables/non-consumables)
@@ -58,17 +61,18 @@ export const ConsumablesSection = ({
 
     // Check if item has usage logs at this site
     const hasLogs = consumableLogs.some(log =>
-      log.consumableId === asset.id &&
-      log.siteId === site.id
+      String(log.consumableId) === String(asset.id) &&
+      String(log.siteId) === siteId
     );
 
     // Check if item currently has quantity at this site (including 0)
-    const hasSiteQuantity = asset.siteQuantities && asset.siteQuantities[site.id] !== undefined;
+    const hasSiteQuantity = asset.siteQuantities && 
+      (asset.siteQuantities[siteId] !== undefined || asset.siteQuantities[site.id] !== undefined);
 
     // Check if item was ever sent to this site via waybill
     const hasWaybillHistory = waybills.some(wb =>
-      wb.siteId === site.id &&
-      wb.items.some(item => item.assetId === asset.id)
+      String(wb.siteId) === siteId &&
+      wb.items.some(item => String(item.assetId) === String(asset.id))
     );
 
     // Show item if it has logs, current site quantity, OR waybill history

@@ -43,12 +43,16 @@ export const MachinesSection = ({
   const [showItemDialog, setShowItemDialog] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Asset | null>(null);
 
+  // Use String() for safe comparison
+  const siteId = String(site.id);
+
   // Filter equipment for the site - show ALL equipment using siteQuantities or ID match
   // This ensures we can still see and log machines even if they're temporarily removed
   const siteEquipment = assets.filter(asset =>
     asset.type === 'equipment' &&
     asset.requiresLogging === true &&
-    (asset.siteId === site.id || (asset.siteQuantities && asset.siteQuantities[site.id] !== undefined)) // Keep ALL including zero
+    (String(asset.siteId) === siteId || 
+     (asset.siteQuantities && (asset.siteQuantities[siteId] !== undefined || asset.siteQuantities[site.id] !== undefined)))
   );
 
 
