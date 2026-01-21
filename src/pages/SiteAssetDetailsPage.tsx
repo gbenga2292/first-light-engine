@@ -88,11 +88,15 @@ export const SiteAssetDetailsPage = ({
     // Load existing log when date changes
     useEffect(() => {
         if (!selectedDate) return;
+        
+        // Use String() for safe comparison
+        const siteId = String(site.id);
+        const assetId = String(asset.id);
 
         if (isEquipment) {
             const existingLog = equipmentLogs.find(log =>
-                log.equipmentId === asset.id &&
-                log.siteId === site.id &&
+                String(log.equipmentId) === assetId &&
+                String(log.siteId) === siteId &&
                 format(log.date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd')
             );
 
@@ -123,8 +127,8 @@ export const SiteAssetDetailsPage = ({
         } else {
             // Consumable
             const existingLog = consumableLogs.find(log =>
-                log.consumableId === asset.id &&
-                log.siteId === site.id &&
+                String(log.consumableId) === assetId &&
+                String(log.siteId) === siteId &&
                 format(log.date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd')
             );
 

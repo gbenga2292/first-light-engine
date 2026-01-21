@@ -1095,11 +1095,13 @@ const Index = () => {
     setSelectedSiteForAnalytics(site);
     setAnalyticsTab(tab);
     setCurrentView('site-analytics');
+    setActiveTab('site-analytics'); // Ensure activeTab is also set
   };
 
   const handleViewAssetDetails = (site: Site, asset: Asset) => {
     setSelectedAssetForDetails({ site, asset });
     setCurrentView('site-asset-details');
+    setActiveTab('site-asset-details'); // Ensure activeTab is also set
   };
 
   const handleShowTransactions = (site: Site) => {
@@ -2593,11 +2595,11 @@ const Index = () => {
                 </div>
 
                 <CollapsibleContent className="space-y-2">
-                  {waybills.filter(waybill => waybill.siteId === selectedSiteForInventory.id).length === 0 ? (
+                  {waybills.filter(waybill => String(waybill.siteId) === String(selectedSiteForInventory.id)).length === 0 ? (
                     <p className="text-muted-foreground">No waybills for this site.</p>
                   ) : (
                     <div className="space-y-2">
-                      {waybills.filter(waybill => waybill.siteId === selectedSiteForInventory.id).map((waybill) => {
+                      {waybills.filter(waybill => String(waybill.siteId) === String(selectedSiteForInventory.id)).map((waybill) => {
                         let badgeVariant: "default" | "secondary" | "outline" = 'outline';
                         if (waybill.status === 'outstanding') {
                           badgeVariant = 'default';

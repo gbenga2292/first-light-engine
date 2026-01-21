@@ -18,15 +18,16 @@ export const SiteWideMachineAnalyticsView = ({
     equipment,
     equipmentLogs
 }: SiteWideMachineAnalyticsViewProps) => {
-    // Filter machines at this site
+    // Filter machines at this site - use String() for safe comparison
+    const siteId = String(site.id);
     const siteMachines = equipment.filter(asset =>
         asset.type === 'equipment' &&
         asset.siteQuantities &&
-        asset.siteQuantities[site.id] > 0
+        (asset.siteQuantities[siteId] > 0 || asset.siteQuantities[site.id] > 0)
     );
 
-    // Filter logs for this site
-    const siteLogs = equipmentLogs.filter(log => log.siteId === site.id);
+    // Filter logs for this site - use String() for safe comparison
+    const siteLogs = equipmentLogs.filter(log => String(log.siteId) === siteId);
 
     // Calculate downtime hours from downtime entries
     const calculateDowntimeHours = (downtimeEntries: any[]): number => {

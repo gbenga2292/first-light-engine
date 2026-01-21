@@ -18,15 +18,18 @@ export const SiteConsumablesAnalyticsView = ({
     assets,
     consumableLogs
 }: SiteConsumablesAnalyticsViewProps) => {
+    // Use String() for safe comparison
+    const siteId = String(site.id);
+    
     // Filter consumables at this site
     const siteConsumables = assets.filter(asset =>
         asset.type === 'consumable' &&
         asset.siteQuantities &&
-        asset.siteQuantities[site.id] > 0
+        (asset.siteQuantities[siteId] > 0 || asset.siteQuantities[site.id] > 0)
     );
 
     // Filter logs for this site
-    const siteLogs = consumableLogs.filter(log => log.siteId === site.id);
+    const siteLogs = consumableLogs.filter(log => String(log.siteId) === siteId);
 
     // Usage trends over last 30 days
     const getLast30DaysData = () => {

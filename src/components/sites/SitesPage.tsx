@@ -153,10 +153,11 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
   };
 
   const handleDelete = (site: Site) => {
-    // Analyze site for deletion options
-    const siteAssets = assets.filter(asset => asset.siteId === site.id);
+    // Analyze site for deletion options - use String() for safe comparison
+    const siteId = String(site.id);
+    const siteAssets = assets.filter(asset => String(asset.siteId) === siteId);
     const outstandingWaybills = waybills.filter(waybill =>
-      waybill.siteId === site.id &&
+      String(waybill.siteId) === siteId &&
       waybill.status !== 'return_completed'
     );
 
@@ -184,7 +185,7 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
 
     // Check if there's any outstanding waybill for this site that includes this asset
     const hasOutstandingWaybill = waybills.some(waybill =>
-      waybill.siteId === selectedSite.id &&
+      String(waybill.siteId) === String(selectedSite.id) &&
       waybill.status !== 'return_completed' &&
       waybill.items.some(item => item.assetName === asset.name)
     );
@@ -561,11 +562,11 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
                 </div>
 
                 <CollapsibleContent className="space-y-2">
-                  {waybills.filter(waybill => waybill.siteId === selectedSite.id).length === 0 ? (
+                  {waybills.filter(waybill => String(waybill.siteId) === String(selectedSite.id)).length === 0 ? (
                     <p className="text-muted-foreground">No waybills for this site.</p>
                   ) : (
                     <div className="space-y-2">
-                      {waybills.filter(waybill => waybill.siteId === selectedSite.id).map((waybill) => {
+                      {waybills.filter(waybill => String(waybill.siteId) === String(selectedSite.id)).map((waybill) => {
                         let badgeVariant: "default" | "secondary" | "outline" = 'outline';
                         if (waybill.status === 'outstanding') {
                           badgeVariant = 'default';
@@ -907,8 +908,8 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredSites.map((site) => {
-          const siteAssets = assets.filter(asset => asset.siteId === site.id);
-          const siteWaybills = waybills.filter(waybill => waybill.siteId === site.id);
+          const siteAssets = assets.filter(asset => String(asset.siteId) === String(site.id));
+          const siteWaybills = waybills.filter(waybill => String(waybill.siteId) === String(site.id));
 
           return (
             <Card key={site.id} className="border-0 shadow-soft">
