@@ -90,6 +90,13 @@ const Index = () => {
   const [aiPrefillData, setAiPrefillData] = useState<any>(null);
   const [selectedSiteForInventory, setSelectedSiteForInventory] = useState<Site | null>(null);
   const [selectedSiteForReturnWaybill, setSelectedSiteForReturnWaybill] = useState<Site | null>(null);
+  
+  // View state for full-page navigation
+  const [currentView, setCurrentView] = useState<string>('main');
+  
+  // Dialog states for waybill documents (used while transitioning to full-page views)
+  const [showWaybillDocument, setShowWaybillDocument] = useState<Waybill | null>(null);
+  const [showReturnWaybillDocument, setShowReturnWaybillDocument] = useState<Waybill | null>(null);
 
 
   const [selectedSiteForTransactions, setSelectedSiteForTransactions] = useState<Site | null>(null);
@@ -947,6 +954,10 @@ const Index = () => {
     } else {
       setShowWaybillDocument(waybill);
     }
+  };
+
+  const handleViewReturnWaybill = (waybill: Waybill) => {
+    setShowReturnWaybillDocument(waybill);
   };
 
   const handleEditWaybill = (waybill: Waybill) => {
@@ -1867,7 +1878,6 @@ const Index = () => {
             quickCheckouts={quickCheckouts}
             sites={sites}
             maintenanceLogs={maintenanceLogs}
-            companySettings={companySettings}
             onBack={() => {
               setSelectedAssetForAnalytics(null);
               setActiveTab('assets');
@@ -3591,15 +3601,7 @@ const Index = () => {
               </DialogContent>
             </Dialog>
 
-            {/* Asset Analytics Dialog */}
-            <AssetAnalyticsDialog
-              asset={selectedAssetForAnalytics}
-              open={showAnalyticsDialog}
-              onOpenChange={setShowAnalyticsDialog}
-              quickCheckouts={quickCheckouts}
-              sites={sites}
-              maintenanceLogs={maintenanceLogs}
-            />
+            {/* Asset Analytics is now handled via full-page navigation in renderContent */}
 
             {/* AI Assistant Dialog */}
             <Dialog open={showAIAssistant} onOpenChange={setShowAIAssistant}>
