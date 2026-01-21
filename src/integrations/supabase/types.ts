@@ -369,6 +369,77 @@ export type Database = {
           },
         ]
       }
+      maintenance_logs: {
+        Row: {
+          cost: number | null
+          created_at: string | null
+          date_completed: string | null
+          date_started: string
+          downtime: number | null
+          id: number
+          location: string | null
+          machine_active_at_time: boolean | null
+          machine_id: number
+          maintenance_type: string
+          next_service_due: string | null
+          parts_replaced: string | null
+          reason: string
+          remarks: string | null
+          service_reset: boolean | null
+          technician: string
+          updated_at: string | null
+          work_done: string
+        }
+        Insert: {
+          cost?: number | null
+          created_at?: string | null
+          date_completed?: string | null
+          date_started: string
+          downtime?: number | null
+          id?: number
+          location?: string | null
+          machine_active_at_time?: boolean | null
+          machine_id: number
+          maintenance_type: string
+          next_service_due?: string | null
+          parts_replaced?: string | null
+          reason: string
+          remarks?: string | null
+          service_reset?: boolean | null
+          technician: string
+          updated_at?: string | null
+          work_done: string
+        }
+        Update: {
+          cost?: number | null
+          created_at?: string | null
+          date_completed?: string | null
+          date_started?: string
+          downtime?: number | null
+          id?: number
+          location?: string | null
+          machine_active_at_time?: boolean | null
+          machine_id?: number
+          maintenance_type?: string
+          next_service_due?: string | null
+          parts_replaced?: string | null
+          reason?: string
+          remarks?: string | null
+          service_reset?: boolean | null
+          technician?: string
+          updated_at?: string | null
+          work_done?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_logs_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       metrics_snapshots: {
         Row: {
           created_at: string | null
