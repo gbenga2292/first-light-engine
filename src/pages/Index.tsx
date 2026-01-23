@@ -2456,11 +2456,11 @@ const Index = () => {
           <div className="space-y-6 animate-fade-in">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent flex items-center gap-2">
-                  <Package className="h-8 w-8" />
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent flex items-center gap-2">
+                  <Package className="h-6 w-6 sm:h-8 sm:w-8" />
                   {selectedSiteForInventory.name} - Materials and Waybills
                 </h1>
-                <p className="text-muted-foreground mt-2">
+                <p className="text-sm sm:text-base text-muted-foreground mt-2">
                   View all materials, equipment, and waybills for this site
                 </p>
               </div>
@@ -2744,11 +2744,11 @@ const Index = () => {
           <div className="space-y-6 animate-fade-in">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent flex items-center gap-2">
-                  <Activity className="h-8 w-8" />
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent flex items-center gap-2">
+                  <Activity className="h-6 w-6 sm:h-8 sm:w-8" />
                   {selectedSiteForTransactions.name} - Transaction History
                 </h1>
-                <p className="text-muted-foreground mt-2">
+                <p className="text-sm sm:text-base text-muted-foreground mt-2">
                   View all asset movements and transactions for this site
                 </p>
               </div>
@@ -2958,10 +2958,10 @@ const Index = () => {
           <div className="space-y-6 animate-fade-in">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
                   Create Return Waybill - {selectedSiteForReturnWaybill.name}
                 </h1>
-                <p className="text-muted-foreground mt-2">
+                <p className="text-sm sm:text-base text-muted-foreground mt-2">
                   Create a return waybill for materials from this site
                 </p>
               </div>
