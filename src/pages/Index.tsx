@@ -86,6 +86,7 @@ const Index = () => {
   const [editingWaybill, setEditingWaybill] = useState<Waybill | null>(null);
   const [editingReturnWaybill, setEditingReturnWaybill] = useState<Waybill | null>(null);
   const [selectedAssetForAnalytics, setSelectedAssetForAnalytics] = useState<Asset | null>(null);
+  const [analyticsReturnTo, setAnalyticsReturnTo] = useState<{ view: string; tab: string } | null>(null);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [aiPrefillData, setAiPrefillData] = useState<any>(null);
   const [selectedSiteForInventory, setSelectedSiteForInventory] = useState<Site | null>(null);
@@ -1882,7 +1883,13 @@ const Index = () => {
             maintenanceLogs={maintenanceLogs}
             onBack={() => {
               setSelectedAssetForAnalytics(null);
-              setActiveTab('assets');
+              if (analyticsReturnTo) {
+                setCurrentView(analyticsReturnTo.view);
+                setActiveTab(analyticsReturnTo.tab);
+                setAnalyticsReturnTo(null);
+              } else {
+                setActiveTab('assets');
+              }
             }}
           />
         ) : null;
@@ -2549,6 +2556,13 @@ const Index = () => {
                 }}
                 onViewAnalytics={() => handleViewAnalytics(selectedSiteForInventory, 'equipment')}
                 onViewAssetDetails={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset)}
+                onViewAssetHistory={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset)}
+                onViewAssetAnalytics={(asset) => {
+                  setAnalyticsReturnTo({ view: 'site-inventory', tab: 'site-inventory' });
+                  setSelectedAssetForAnalytics(asset);
+                  setCurrentView('asset-analytics');
+                  setActiveTab('asset-analytics');
+                }}
               />
 
               {/* Consumables Section */}
@@ -2578,6 +2592,13 @@ const Index = () => {
                 }}
                 onViewAnalytics={() => handleViewAnalytics(selectedSiteForInventory, 'consumables')}
                 onViewAssetDetails={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset)}
+                onViewAssetHistory={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset)}
+                onViewAssetAnalytics={(asset) => {
+                  setAnalyticsReturnTo({ view: 'site-inventory', tab: 'site-inventory' });
+                  setSelectedAssetForAnalytics(asset);
+                  setCurrentView('asset-analytics');
+                  setActiveTab('asset-analytics');
+                }}
               />
 
               {/* Waybills List */}
@@ -2700,6 +2721,7 @@ const Index = () => {
             onBack={() => {
               setSelectedAssetForDetails(null);
               setCurrentView('site-inventory');
+              setActiveTab('site-inventory');
             }}
             onAddEquipmentLog={async (log: EquipmentLog) => {
               try {

@@ -29,9 +29,10 @@ interface ConsumablesSectionProps {
   consumableLogs: ConsumableUsageLog[];
   onAddConsumableLog: (log: ConsumableUsageLog) => void;
   onUpdateConsumableLog: (log: ConsumableUsageLog) => void;
-
   onViewAnalytics?: () => void;
   onViewAssetDetails?: (asset: Asset) => void;
+  onViewAssetHistory?: (asset: Asset) => void;
+  onViewAssetAnalytics?: (asset: Asset) => void;
 }
 
 export const ConsumablesSection = ({
@@ -42,9 +43,10 @@ export const ConsumablesSection = ({
   consumableLogs,
   onAddConsumableLog,
   onUpdateConsumableLog,
-
   onViewAnalytics,
-  onViewAssetDetails
+  onViewAssetDetails,
+  onViewAssetHistory,
+  onViewAssetAnalytics
 }: ConsumablesSectionProps) => {
   const { hasPermission } = useAuth();
   const { toast } = useToast();
@@ -191,18 +193,20 @@ export const ConsumablesSection = ({
                         {currentQty === 0 ? 'Depleted' : 'Log Usage'}
                       </Button>
                       <Button
-                        onClick={() => onViewAssetDetails?.(consumable)}
+                        onClick={() => onViewAssetHistory?.(consumable)}
                         variant="ghost"
                         size="sm"
                         className="px-2"
+                        title="View History"
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
                       <Button
-                        onClick={() => onViewAssetDetails?.(consumable)}
+                        onClick={() => onViewAssetAnalytics?.(consumable)}
                         variant="ghost"
                         size="sm"
                         className="px-2"
+                        title="View Analytics"
                       >
                         <BarChart3 className="h-4 w-4" />
                       </Button>
