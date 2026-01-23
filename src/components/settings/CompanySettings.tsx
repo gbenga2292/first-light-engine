@@ -20,7 +20,6 @@ import { Switch } from "@/components/ui/switch";
 import { saveAs } from "file-saver";
 import { logActivity, exportActivitiesToTxt, getActivities, clearActivities } from "@/utils/activityLogger";
 import { useAuth, User, UserRole } from "@/contexts/AuthContext";
-import { SyncStatusPanel } from "./SyncStatusPanel";
 import { EmployeeAnalytics } from "./EmployeeAnalytics";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { dataService } from "@/services/dataService";
@@ -1013,12 +1012,17 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
   };
 
   const handleReset = async () => {
+    // Confirmation handled by UI Dialog
     setIsLoading(true);
     setError(null);
     try {
-      // Reset all data in parent
+      // 1. Wipe DB
+      await dataService.system.resetAllData();
+
+      // 2. Clear Parent State
       onResetAllData();
-      // Reset local state
+
+      // 3. Clear Local State
       onAssetsChange([]);
       onWaybillsChange([]);
       onQuickCheckoutsChange([]);
@@ -1028,16 +1032,23 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
       onVehiclesChange([]);
       setFormData(defaultSettings);
       setLogoPreview(null);
+
+      // 4. Update settings
       onSave(defaultSettings);
+
       toast({
         title: "Data Reset",
-        description: "All data has been cleared successfully."
+        description: "All application data has been wiped from the database."
       });
-    } catch (err) {
-      setError("Failed to reset data. Please try again.");
+
+      // Optional: reload to ensure clean slate
+      setTimeout(() => window.location.reload(), 1000);
+
+    } catch (err: any) {
+      setError(err.message || "Failed to reset data");
       toast({
         title: "Reset Failed",
-        description: "An error occurred while resetting data.",
+        description: "An error occurred while cleaning the database.",
         variant: "destructive"
       });
     } finally {
@@ -1051,86 +1062,46 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
     setError(null);
 
     try {
-      // Use the unified backup scheduler to save to NAS automatically
-      if (window.backupScheduler) {
-
-        // Map frontend CamelCase IDs to backend snake_case IDs
-        const idMapping: { [key: string]: string } = {
-          quickCheckouts: 'quick_checkouts',
-          siteTransactions: 'site_transactions',
-          equipmentLogs: 'equipment_logs',
-          consumableLogs: 'consumable_logs',
-          companySettings: 'company_settings'
-        };
-
-        const mappedSections = backupTypes.has('json')
-          ? Array.from(selectedItems).map(id => idMapping[id] || id)
-          : null;
-
-        // Prepare options for customs backup
-        const options = {
-          backupTypes: Array.from(backupTypes),
-          sections: mappedSections
-        };
-
-        console.log('🔄 Creating backup via scheduler:', options);
-
-        // Trigger backup on backend (saves directly to NAS)
-        const result = await window.backupScheduler.triggerManual(options);
-
-        // Refresh backups list in the scheduler section
-        const backups = await window.backupScheduler.listBackups();
-        setBackupsList(backups);
-
-        // Refresh status
-        const status = await window.backupScheduler.getStatus();
-        setBackupSchedulerStatus(status);
-        setNasAccessible(status.nasAccessible);
-
-        // Check results
-        const jsonSuccess = result.json?.success || false;
-        const dbSuccess = result.database?.success || false;
-
-        if (jsonSuccess && dbSuccess) {
-          toast({
-            title: "Backup Complete",
-            description: result.nasAccessible
-              ? "Backups saved to NAS successfully"
-              : "Backup failed - NAS not accessible"
-          });
-        } else if (jsonSuccess || dbSuccess) {
-          const successType = jsonSuccess ? "JSON" : "Database";
-          toast({
-            title: "Partial Backup Complete",
-            description: `${successType} backup created successfully. ${jsonSuccess ? 'Database' : 'JSON'} backup failed.`,
-            variant: result.nasAccessible ? "default" : "destructive"
-          });
-        } else {
-          toast({
-            title: "Backup Failed",
-            description: result.nasAccessible ? "Backups failed. Check console for details." : "NAS not accessible - backup failed",
-            variant: "destructive"
-          });
+      const backupData: any = {
+        _metadata: {
+          version: '1.0',
+          timestamp: new Date().toISOString(),
+          appName: 'FirstLightEnding'
         }
+      };
 
-        // Close dialog on success
-        if (jsonSuccess || dbSuccess) {
-          setIsBackupDialogOpen(false);
-        }
+      // Collect data from props
+      if (selectedItems.has('assets')) backupData.assets = assets;
+      if (selectedItems.has('waybills')) backupData.waybills = waybills;
+      if (selectedItems.has('quickCheckouts')) backupData.quickCheckouts = quickCheckouts;
+      if (selectedItems.has('sites')) backupData.sites = sites;
+      if (selectedItems.has('siteTransactions')) backupData.siteTransactions = siteTransactions;
+      if (selectedItems.has('employees')) backupData.employees = employees;
+      if (selectedItems.has('vehicles')) backupData.vehicles = vehicles;
+      if (selectedItems.has('companySettings')) backupData.companySettings = formData;
+      if (selectedItems.has('activities')) backupData.activities = activities;
+      if (selectedItems.has('equipmentLogs')) backupData.equipmentLogs = equipmentLogs;
+      if (selectedItems.has('consumableLogs')) backupData.consumableLogs = consumableLogs;
 
-      } else {
-        toast({
-          title: "Backup Not Available",
-          description: "Backup scheduler not initialized",
-          variant: "destructive"
-        });
-      }
-    } catch (err) {
+      // Create file and download
+      const fileName = `backup-${new Date().toISOString().slice(0, 10)}.json`;
+      const fileToSave = new Blob([JSON.stringify(backupData, null, 2)], {
+        type: 'application/json'
+      });
+      saveAs(fileToSave, fileName);
+
+      toast({
+        title: "Backup Downloaded",
+        description: `Saved as ${fileName}`
+      });
+
+      setIsBackupDialogOpen(false);
+    } catch (err: any) {
       console.error('Backup error:', err);
-      setError("Failed to create backup. Please check NAS connection.");
+      setError("Failed to create backup.");
       toast({
         title: "Backup Failed",
-        description: "An error occurred while creating backup.",
+        description: err.message,
         variant: "destructive"
       });
     } finally {
@@ -1219,8 +1190,13 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
       setIsLoading(true);
 
       try {
-        console.log('🔄 Manual backup triggered from UI');
-        const result = await window.backupScheduler.triggerManual();
+        console.log('🔄 Manual backup triggered from UI (Supabase Mode)');
+
+        // 1. Generate Backup Data locally (using Supabase)
+        const backupData = await dataService.system.createBackup();
+
+        // 2. Send to Electron to save
+        const result = await window.backupScheduler.save(backupData);
 
         // Update last backup time
         setLastBackupTime(Date.now());
@@ -1239,6 +1215,11 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
         const dbSuccess = result.database?.success || false;
 
         if (jsonSuccess && dbSuccess) {
+          await logActivity({
+            action: 'backup',
+            entity: 'database',
+            details: `Manual backup created: ${result.nasAccessible ? 'Saved to NAS' : 'Local only'}`
+          });
           toast({
             title: "Backup Complete",
             description: result.nasAccessible
@@ -1309,6 +1290,50 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
     setIsRestoreComplete(false);
 
     try {
+      // Use dataService to restore
+      const result = await dataService.system.restoreData(
+        loadedBackupData,
+        Array.from(restoreSelectedSections)
+      );
+
+      const combinedErrors = [...(result.errors || [])];
+
+      setRestoreProgress({
+        phase: 'Complete',
+        total: restoreSelectedSections.size,
+        done: result.success ? restoreSelectedSections.size : 0,
+        message: result.success ? 'Restore success' : 'Restore failed',
+        errors: combinedErrors
+      });
+
+      if (result.success && combinedErrors.length === 0) {
+        setIsRestoreComplete(true);
+        toast({
+          title: "Restore Successful",
+          description: "Data has been restored to the database. Reloading...",
+          variant: "default"
+        });
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        setError(`Restore completed with ${combinedErrors.length} errors.`);
+        toast({ title: "Completed with Errors", description: "Some items failed to restore.", variant: "destructive" });
+      }
+
+    } catch (err: any) {
+      console.error('Restore critical error:', err);
+      setError("Failed to restore data: " + err.message);
+      toast({ title: "Restore Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+    return; // Stop here
+    /*
+    if (!loadedBackupData) return;
+    setIsLoading(true);
+    setError(null);
+    setIsRestoreComplete(false);
+
+    try {
       const backupData = loadedBackupData;
 
       // Check if running in Electron with database access
@@ -1373,19 +1398,20 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
 
       // Pre-Restore Cleanup
       if (hasDB) {
+      // Pre-Restore Cleanup
+      if (hasDB) { // Or if (true) since we want this for Supabase too
         const clearTableSafe = async (table: string) => {
-          const dbApi = window.electronAPI?.db;
-          // Use dynamic property access for optional clearTable method
-          if (dbApi && 'clearTable' in dbApi) {
             try {
-              await (dbApi as unknown as { clearTable: (table: string) => Promise<void> }).clearTable(table);
+              // Use the new dataService method
+              if (dataService.system.clearTable) {
+                 await dataService.system.clearTable(table);
+              }
             } catch (e) {
               logger.warn(`Failed to clear table ${table}`, e);
             }
-          }
         };
 
-        setRestoreProgress((prev) => ({ ...prev, phase: 'Preparation', message: 'Cleaning database...' }));
+        setRestoreProgress((prev: any) => ({ ...prev, phase: 'Preparation', message: 'Cleaning database...' }));
 
         // Clear tables in reverse dependency order
         if (restoreSelectedSections.has('site_transactions')) await clearTableSafe('site_transactions');
@@ -1393,7 +1419,7 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
         if (restoreSelectedSections.has('waybills')) await clearTableSafe('waybills');
         if (restoreSelectedSections.has('equipment_logs')) await clearTableSafe('equipment_logs');
         if (restoreSelectedSections.has('consumable_logs')) await clearTableSafe('consumable_logs');
-        if (restoreSelectedSections.has('activities')) await clearTableSafe('activity_log');
+        if (restoreSelectedSections.has('activities')) await clearTableSafe('activities');
         if (restoreSelectedSections.has('assets')) await clearTableSafe('assets');
         if (restoreSelectedSections.has('vehicles')) await clearTableSafe('vehicles');
         if (restoreSelectedSections.has('employees')) await clearTableSafe('employees');
@@ -1786,7 +1812,7 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
     } finally {
       setIsLoading(false);
     }
-  };
+  */ };
 
   const handleBackupActivities = async () => {
     try {
@@ -2109,7 +2135,7 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
       );
     }
 
-    tabs.push({ value: "sync", label: "Sync Status", shortLabel: "Sync", icon: <Database className="h-4 w-4" /> });
+
 
     return tabs;
   }, [currentUser?.role, hasPermission]);
@@ -3949,12 +3975,7 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
         </div>
       )}
 
-      {/* Database Sync Tab */}
-      {activeSettingsTab === "sync" && (
-        <div className="space-y-6">
-          <SyncStatusPanel />
-        </div>
-      )}
+
 
       {/* Employee Analytics Dialog */}
       <Dialog open={!!analyticsEmployee} onOpenChange={(open) => !open && setAnalyticsEmployee(null)}>

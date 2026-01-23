@@ -94,6 +94,32 @@ const App = () => {
 
     showDatabaseInfo();
     validateLLMConfig();
+
+    // Listen for scheduled backup requests from Main process
+    if ((window as any).electronAPI?.backupScheduler?.onAutoBackupTrigger) {
+      (window as any).electronAPI.backupScheduler.onAutoBackupTrigger(async () => {
+        logger.info('Received scheduled backup request');
+        try {
+          // Dynamically import to ensure we have fresh instance if needed, 
+          // though standard import at top is fine too. Using top-level import is cleaner.
+          // Using the global dataService imported at top would be better but I'll use lazy import to be safe
+          const { dataService } = await import("./services/dataService");
+
+          const backupData = await dataService.system.createBackup();
+
+          if ((window as any).electronAPI.backupScheduler?.save) {
+            await (window as any).electronAPI.backupScheduler.save(backupData);
+            toast.success("Scheduled Backup Complete", {
+              description: "Your daily backup has been saved."
+            });
+          }
+        } catch (err) {
+          logger.error("Scheduled backup failed", err);
+          toast.error("Scheduled Backup Failed");
+        }
+      });
+    }
+
   }, []);
 
   return (

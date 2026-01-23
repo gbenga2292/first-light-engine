@@ -1646,15 +1646,6 @@ const Index = () => {
       return;
     }
 
-    if (!window.electronAPI || !window.electronAPI.db) {
-      toast({
-        title: "Database Not Available",
-        description: "Cannot save maintenance logs without database connection.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     try {
       for (const entry of entries) {
         // 1. Create Maintenance Log
@@ -1734,11 +1725,12 @@ const Index = () => {
         title: "Maintenance Logged",
         description: `Successfully logged maintenance for ${entries.length} machine(s)`
       });
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Failed to save maintenance logs', error);
+      const errorMessage = error?.message || error?.error?.message || 'Failed to save maintenance logs to database';
       toast({
         title: "Error",
-        description: "Failed to save maintenance logs to database",
+        description: errorMessage,
         variant: "destructive"
       });
     }
@@ -1807,11 +1799,10 @@ const Index = () => {
   };
 
 
-
   function renderContent() {
     switch (activeTab) {
       case "dashboard":
-        return <Dashboard assets={assets} waybills={waybills} quickCheckouts={quickCheckouts} sites={sites} equipmentLogs={equipmentLogs} employees={employees} onQuickLogEquipment={async (log: EquipmentLog) => {
+        return <Dashboard assets={assets} waybills={waybills} quickCheckouts={quickCheckouts} sites={sites} equipmentLogs={equipmentLogs} maintenanceLogs={maintenanceLogs} employees={employees} vehicles={vehicles} onQuickLogEquipment={async (log: EquipmentLog) => {
           if (!isAuthenticated) {
             toast({
               title: "Authentication Required",
@@ -1850,6 +1841,31 @@ const Index = () => {
             setActiveAvailabilityFilter(params.availability);
           }
         }} />
+      case "machine-maintenance":
+        return <MachineMaintenancePage
+          machines={assets.filter(a => a.type === 'equipment').map(a => ({
+            id: a.id,
+            name: a.name,
+            model: a.model,
+            serialNumber: a.serialNumber,
+            site: a.siteId ? (sites.find(s => s.id === a.siteId)?.name || a.siteId) : 'Fleet',
+            deploymentDate: a.deploymentDate || a.createdAt,
+            status: a.status as any,
+            operatingPattern: 'Standard',
+            serviceInterval: a.serviceInterval || 2,
+            responsibleSupervisor: 'Fleet Manager',
+            notes: a.description,
+            createdAt: a.createdAt,
+            updatedAt: a.updatedAt
+          }))}
+          maintenanceLogs={maintenanceLogs}
+          assets={assets}
+          sites={sites}
+          employees={employees}
+          vehicles={vehicles}
+          onAddMachine={() => setActiveTab('add-asset')}
+          onSubmitMaintenance={handleSubmitMaintenance}
+        />;
       case "recent-activities":
         return <RecentActivitiesPage />;
       case "assets":
@@ -3025,7 +3041,7 @@ const Index = () => {
           </div>
         ) : null;
       default:
-        return <Dashboard assets={assets} waybills={waybills} quickCheckouts={quickCheckouts} sites={sites} equipmentLogs={equipmentLogs} employees={employees} onQuickLogEquipment={async (log: EquipmentLog) => {
+        return <Dashboard assets={assets} waybills={waybills} quickCheckouts={quickCheckouts} sites={sites} equipmentLogs={equipmentLogs} maintenanceLogs={maintenanceLogs} employees={employees} vehicles={vehicles} onQuickLogEquipment={async (log: EquipmentLog) => {
           if (!isAuthenticated) {
             toast({
               title: "Authentication Required",

@@ -5,14 +5,15 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Asset, Waybill, QuickCheckout, Activity, Site, Employee } from "@/types/asset";
+import { Asset, Waybill, QuickCheckout, Activity, Site, Employee, Vehicle } from "@/types/asset";
 import { EquipmentLog } from "@/types/equipment";
+import { MaintenanceLog } from "@/types/maintenance";
 import { Package, FileText, ShoppingCart, AlertTriangle, TrendingDown, CheckCircle, Wrench, BarChart3, ChevronDown, ChevronUp, MapPin, User } from "lucide-react";
 import { SiteMachineAnalytics } from "@/components/sites/SiteMachineAnalytics";
 import { NotificationPanel } from "./NotificationPanel";
 import { TrendChart } from "./TrendChart";
 import { useMetricsSnapshots, getMetricsHistory } from "@/hooks/useMetricsSnapshots";
-import { format, subDays } from "date-fns";
+import { format, subDays, addMonths, differenceInDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 interface DashboardProps {
   assets: Asset[];
@@ -20,7 +21,9 @@ interface DashboardProps {
   quickCheckouts: QuickCheckout[];
   sites: Site[];
   equipmentLogs: EquipmentLog[];
+  maintenanceLogs: MaintenanceLog[];
   employees: Employee[];
+  vehicles: Vehicle[];
   onQuickLogEquipment: (log: EquipmentLog) => void;
   onNavigate: (tab: string, params?: {
     availability: 'out' | 'restock';
@@ -32,7 +35,9 @@ export const Dashboard = ({
   quickCheckouts,
   sites,
   equipmentLogs,
+  maintenanceLogs,
   employees,
+  vehicles,
   onQuickLogEquipment,
   onNavigate
 }: DashboardProps) => {
@@ -52,6 +57,44 @@ export const Dashboard = ({
   const lowStockCount = assets.filter(asset => asset.quantity > 0 && asset.quantity < 10).length;
   const outstandingWaybills = (waybills || []).filter(w => w.status === 'outstanding').length;
   const outstandingCheckouts = (quickCheckouts || []).filter(c => c.status === 'outstanding').length;
+
+  // Total machines includes both equipment assets and vehicles (matching MachineMaintenancePage)
+  const equipmentCount = assets.filter(a => a.type === 'equipment').length;
+  const vehicleCount = vehicles?.length || 0;
+  const totalMachines = equipmentCount + vehicleCount;
+
+  // Calculate machines due based on latest maintenance logs (Sync with MachineMaintenancePage logic)
+  const latestLogs = new Map<string, MaintenanceLog>();
+  (maintenanceLogs || []).forEach(log => {
+    if (!log.machineId) return;
+    const existing = latestLogs.get(log.machineId);
+    if (!existing || new Date(log.dateStarted) > new Date(existing.dateStarted)) {
+      latestLogs.set(log.machineId, log);
+    }
+  });
+
+  const activeMachines = assets.filter(a => a.type === 'equipment' && a.status === 'active');
+  let maintenanceDueCount = 0;
+
+  const now = new Date();
+  activeMachines.forEach(machine => {
+    const log = latestLogs.get(machine.id);
+    const deploymentDate = machine.deploymentDate ? new Date(machine.deploymentDate) : new Date(machine.createdAt);
+    const serviceInterval = machine.serviceInterval || 2;
+
+    const expectedServiceDate = log?.nextServiceDue
+      ? new Date(log.nextServiceDue)
+      : (log
+        ? addMonths(new Date(log.dateStarted), serviceInterval)
+        : addMonths(deploymentDate, serviceInterval));
+
+    const daysRemaining = differenceInDays(expectedServiceDate, now);
+    if (daysRemaining <= 14) {
+      maintenanceDueCount++;
+    }
+  });
+
+
 
   // Store current metrics as snapshot
   useMetricsSnapshots({
@@ -433,6 +476,32 @@ export const Dashboard = ({
             <p className="text-[10px] md:text-xs text-muted-foreground">Total sites</p>
             <Badge variant="outline" className="text-[10px] md:text-xs">
               {sites.length}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 6. Machine Maintenance */}
+      <Card className="border-0 shadow-soft hover:shadow-lg transition-all duration-300 cursor-pointer group relative overflow-hidden active:scale-[0.98]" onClick={() => onNavigate('machine-maintenance')}>
+        <div className="absolute top-0 right-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+          <Wrench className="h-16 md:h-24 w-16 md:w-24 text-red-500" />
+        </div>
+        <CardHeader className="pb-2 p-3 md:p-6">
+          <CardTitle className="flex items-center gap-2 text-base md:text-xl">
+            <Wrench className="h-5 w-5 md:h-6 md:w-6 text-red-500" />
+            Maintenance
+          </CardTitle>
+          <CardDescription className="text-xs md:text-sm">Machine service status</CardDescription>
+        </CardHeader>
+        <CardContent className="p-3 md:p-6 pt-0">
+          <div className="text-2xl md:text-3xl font-bold text-red-500">
+            {maintenanceDueCount}
+          </div>
+          <div className="text-xs md:text-sm text-muted-foreground">Machines Due</div>
+          <div className="flex items-center justify-between mt-2 pt-2 border-t">
+            <p className="text-[10px] md:text-xs text-muted-foreground">Total Machines</p>
+            <Badge variant="outline" className="text-[10px] md:text-xs">
+              {totalMachines}
             </Badge>
           </div>
         </CardContent>
