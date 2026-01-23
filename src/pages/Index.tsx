@@ -23,6 +23,7 @@ import { ReturnWaybillDocument } from "@/components/waybills/ReturnWaybillDocume
 import { ReturnProcessingDialog } from "@/components/waybills/ReturnProcessingDialog";
 import { QuickCheckoutForm } from "@/components/checkout/QuickCheckoutForm";
 import { EmployeeAnalyticsPage } from "@/pages/EmployeeAnalyticsPage";
+import { RecentActivitiesPage } from "@/pages/RecentActivitiesPage";
 
 import { CompanySettings } from "@/components/settings/CompanySettings";
 import { Asset, Waybill, WaybillItem, QuickCheckout, ReturnBill, Site, CompanySettings as CompanySettingsType, Employee, ReturnItem, SiteTransaction, Vehicle } from "@/types/asset";
@@ -91,10 +92,10 @@ const Index = () => {
   const [aiPrefillData, setAiPrefillData] = useState<any>(null);
   const [selectedSiteForInventory, setSelectedSiteForInventory] = useState<Site | null>(null);
   const [selectedSiteForReturnWaybill, setSelectedSiteForReturnWaybill] = useState<Site | null>(null);
-  
+
   // View state for full-page navigation
   const [currentView, setCurrentView] = useState<string>('main');
-  
+
   // Dialog states for waybill documents (used while transitioning to full-page views)
   const [showWaybillDocument, setShowWaybillDocument] = useState<Waybill | null>(null);
   const [showReturnWaybillDocument, setShowReturnWaybillDocument] = useState<Waybill | null>(null);
@@ -1848,7 +1849,9 @@ const Index = () => {
           if (tab === 'assets' && params?.availability) {
             setActiveAvailabilityFilter(params.availability);
           }
-        }} />;
+        }} />
+      case "recent-activities":
+        return <RecentActivitiesPage />;
       case "assets":
         return <AssetTable
           assets={assets}
@@ -3416,7 +3419,7 @@ const Index = () => {
           )}
 
           <main className={cn(
-            "flex-1 overflow-y-auto p-3 md:p-6",
+            "flex-1 overflow-y-auto overflow-x-hidden p-3 md:p-6",
             isMobile && "pb-20" // Add padding for bottom nav
           )}>
             {isAssetInventoryTab && (

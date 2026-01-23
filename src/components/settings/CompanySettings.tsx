@@ -2157,23 +2157,22 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
         </div>
       ) : (
         // Desktop: Standard tabs
-        <Tabs value={activeSettingsTab} onValueChange={setActiveSettingsTab} className="w-full">
-          <div className="overflow-x-auto hide-scrollbar">
-            <TabsList className="inline-flex h-auto min-w-max md:grid md:w-full md:grid-cols-4 lg:grid-cols-7 gap-1">
+        <div className="w-full">
+          <Tabs value={activeSettingsTab} onValueChange={setActiveSettingsTab} className="w-full">
+            <TabsList className="h-auto w-full flex flex-wrap justify-start bg-muted/50 p-1 gap-1">
               {settingsTabs.map((tab) => (
                 <TabsTrigger
                   key={tab.value}
                   value={tab.value}
-                  className="flex items-center gap-1.5 px-3 py-2 text-xs md:text-sm whitespace-nowrap"
+                  className="flex-1 min-w-[140px] flex items-center gap-2 px-4 py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
                 >
                   {tab.icon}
-                  <span className="hidden sm:inline">{tab.label}</span>
-                  <span className="sm:hidden">{tab.shortLabel}</span>
+                  <span>{tab.label}</span>
                 </TabsTrigger>
               ))}
             </TabsList>
-          </div>
-        </Tabs>
+          </Tabs>
+        </div>
       )}
 
       {/* Settings Content */}

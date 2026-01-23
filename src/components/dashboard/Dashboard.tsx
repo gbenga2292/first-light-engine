@@ -7,12 +7,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Asset, Waybill, QuickCheckout, Activity, Site, Employee } from "@/types/asset";
 import { EquipmentLog } from "@/types/equipment";
-import { Package, FileText, ShoppingCart, AlertTriangle, TrendingDown, CheckCircle, User, Wrench, BarChart3, ChevronDown, ChevronUp, CalendarIcon, MapPin } from "lucide-react";
-import { getActivities } from "@/utils/activityLogger";
+import { Package, FileText, ShoppingCart, AlertTriangle, TrendingDown, CheckCircle, Wrench, BarChart3, ChevronDown, ChevronUp, MapPin, User } from "lucide-react";
 import { SiteMachineAnalytics } from "@/components/sites/SiteMachineAnalytics";
 import { NotificationPanel } from "./NotificationPanel";
 import { TrendChart } from "./TrendChart";
-import { SyncStatusBanner } from "@/components/layout/SyncStatusBanner";
 import { useMetricsSnapshots, getMetricsHistory } from "@/hooks/useMetricsSnapshots";
 import { format, subDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -38,16 +36,11 @@ export const Dashboard = ({
   onQuickLogEquipment,
   onNavigate
 }: DashboardProps) => {
-  const [activities, setActivities] = useState<Activity[]>([]);
   const [selectedEquipment, setSelectedEquipment] = useState<Asset | null>(null);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
-  const [activityDateRange, setActivityDateRange] = useState({
-    from: subDays(new Date(), 7),
-    to: new Date()
-  });
-  const [showDatePicker, setShowDatePicker] = useState(false);
+
   const [metricsHistory, setMetricsHistory] = useState<any[]>([]);
   const [isEquipmentLoggingExpanded, setIsEquipmentLoggingExpanded] = useState(true);
   const {
@@ -73,8 +66,6 @@ export const Dashboard = ({
   // Load activities and metrics history on mount
   useEffect(() => {
     const loadData = async () => {
-      const loadedActivities = await getActivities();
-      setActivities(loadedActivities);
       const history = await getMetricsHistory(7);
       setMetricsHistory(history);
     };
@@ -147,34 +138,34 @@ export const Dashboard = ({
     const isExpanded = expandedCategories[category];
     const displayAssets = isExpanded ? assets : assets.slice(0, 3);
     return <Card className="border-0 shadow-soft">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {icon}
-              {title}
-            </div>
-            {assets.length > 3 && <Button variant="ghost" size="sm" onClick={() => toggleCategoryExpansion(category)} className="h-6 w-6 p-0">
-                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </Button>}
-          </CardTitle>
-          <CardDescription>
-            {assets.length} items - {assets.reduce((sum, a) => sum + a.quantity, 0)} units
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {displayAssets.map((asset, index) => <div key={asset.id || index} className="flex justify-between items-center">
-                <span className="text-sm">{asset.name}</span>
-                <span className={`text-sm font-medium ${asset.quantity === 0 ? 'text-destructive' : asset.quantity < 10 ? 'text-warning' : 'text-success'}`}>
-                  {asset.quantity} {asset.unitOfMeasurement}
-                </span>
-              </div>)}
-            {assets.length > 3 && !isExpanded && <Button variant="ghost" size="sm" onClick={() => toggleCategoryExpansion(category)} className="w-full text-sm text-muted-foreground hover:text-foreground">
-                +{assets.length - 3} more items
-              </Button>}
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {icon}
+            {title}
           </div>
-        </CardContent>
-      </Card>;
+          {assets.length > 3 && <Button variant="ghost" size="sm" onClick={() => toggleCategoryExpansion(category)} className="h-6 w-6 p-0">
+            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>}
+        </CardTitle>
+        <CardDescription>
+          {assets.length} items - {assets.reduce((sum, a) => sum + a.quantity, 0)} units
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {displayAssets.map((asset, index) => <div key={asset.id || index} className="flex justify-between items-center">
+            <span className="text-sm">{asset.name}</span>
+            <span className={`text-sm font-medium ${asset.quantity === 0 ? 'text-destructive' : asset.quantity < 10 ? 'text-warning' : 'text-success'}`}>
+              {asset.quantity} {asset.unitOfMeasurement}
+            </span>
+          </div>)}
+          {assets.length > 3 && !isExpanded && <Button variant="ghost" size="sm" onClick={() => toggleCategoryExpansion(category)} className="w-full text-sm text-muted-foreground hover:text-foreground">
+            +{assets.length - 3} more items
+          </Button>}
+        </div>
+      </CardContent>
+    </Card>;
   };
 
   // Get all equipment requiring logging
@@ -289,347 +280,256 @@ export const Dashboard = ({
     }
   }], [totalAssets, totalQuantity, outstandingWaybills, outstandingCheckouts, outOfStockCount, lowStockCount, metricsHistory]);
 
-  // Filter activities by date range
-  const filteredActivities = useMemo(() => {
-    return activities.filter(activity => {
-      const activityDate = activity.timestamp;
-      return activityDate >= activityDateRange.from && activityDate <= activityDateRange.to;
-    });
-  }, [activities, activityDateRange]);
+
   return <div className="space-y-4 md:space-y-8">
-      {/* Sync Status Banner */}
-      <SyncStatusBanner />
 
-      {/* Header - Mobile Optimized */}
-      <div className="px-1">
-        <h1 className="text-2xl md:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-          Dashboard
-        </h1>
-        <p className="text-muted-foreground text-sm md:text-base mt-1">
-          Inventory & asset overview
-        </p>
-      </div>
+    {/* Header - Mobile Optimized */}
+    <div className="px-1">
+      <h1 className="text-2xl md:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+        Dashboard
+      </h1>
+      <p className="text-muted-foreground text-sm md:text-base mt-1">
+        Inventory & asset overview
+      </p>
+    </div>
 
-      {/* Action Modules Grid - Mobile Optimized */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-6">
-        {/* 1. Inventory Overview */}
-        <Card className="border-0 shadow-soft hover:shadow-lg transition-all duration-300 cursor-pointer group relative overflow-hidden active:scale-[0.98]" onClick={() => onNavigate('assets')}>
-          <div className="absolute top-0 right-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <Package className="h-16 md:h-24 w-16 md:w-24 text-primary" />
-          </div>
-          <CardHeader className="pb-2 p-3 md:p-6">
-            <CardTitle className="flex items-center gap-2 text-base md:text-xl">
-              <Package className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-              Inventory
-            </CardTitle>
-            <CardDescription className="text-xs md:text-sm">Tools, equipment & consumables</CardDescription>
-          </CardHeader>
-          <CardContent className="p-3 md:p-6 pt-0">
-            <div className="flex justify-between items-end">
-              <div>
-                <div className="text-2xl md:text-3xl font-bold text-primary">{totalAssets}</div>
-                <div className="text-xs md:text-sm text-muted-foreground">Inventory</div>
-              </div>
-              <div className="text-right">
-                <div className="text-xl md:text-2xl font-bold text-success">{totalQuantity}</div>
-                <div className="text-xs md:text-sm text-muted-foreground">Total Qty</div>
-              </div>
+    {/* Action Modules Grid - Mobile Optimized */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-6">
+      {/* 1. Inventory Overview */}
+      <Card className="border-0 shadow-soft hover:shadow-lg transition-all duration-300 cursor-pointer group relative overflow-hidden active:scale-[0.98]" onClick={() => onNavigate('assets')}>
+        <div className="absolute top-0 right-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+          <Package className="h-16 md:h-24 w-16 md:w-24 text-primary" />
+        </div>
+        <CardHeader className="pb-2 p-3 md:p-6">
+          <CardTitle className="flex items-center gap-2 text-base md:text-xl">
+            <Package className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+            Inventory
+          </CardTitle>
+          <CardDescription className="text-xs md:text-sm">Tools, equipment & consumables</CardDescription>
+        </CardHeader>
+        <CardContent className="p-3 md:p-6 pt-0">
+          <div className="flex justify-between items-end">
+            <div>
+              <div className="text-2xl md:text-3xl font-bold text-primary">{totalAssets}</div>
+              <div className="text-xs md:text-sm text-muted-foreground">Inventory</div>
             </div>
-            {(outOfStockCount > 0 || lowStockCount > 0) && <div className="mt-3 flex flex-wrap gap-2">
-                {outOfStockCount > 0 && <Badge variant="destructive" className="flex gap-1 items-center text-xs hover:bg-destructive/80 transition-colors z-10 relative" onClick={e => {
+            <div className="text-right">
+              <div className="text-xl md:text-2xl font-bold text-success">{totalQuantity}</div>
+              <div className="text-xs md:text-sm text-muted-foreground">Total Qty</div>
+            </div>
+          </div>
+          {(outOfStockCount > 0 || lowStockCount > 0) && <div className="mt-3 flex flex-wrap gap-2">
+            {outOfStockCount > 0 && <Badge variant="destructive" className="flex gap-1 items-center text-xs hover:bg-destructive/80 transition-colors z-10 relative" onClick={e => {
               e.stopPropagation();
               onNavigate('assets', {
                 availability: 'out'
               });
             }}>
-                    <AlertTriangle className="h-3 w-3" />
-                    {outOfStockCount} Out
-                  </Badge>}
-                {lowStockCount > 0 && <Badge variant="outline" className="text-warning border-warning flex gap-1 items-center text-xs hover:bg-warning/10 transition-colors z-10 relative" onClick={e => {
+              <AlertTriangle className="h-3 w-3" />
+              {outOfStockCount} Out
+            </Badge>}
+            {lowStockCount > 0 && <Badge variant="outline" className="text-warning border-warning flex gap-1 items-center text-xs hover:bg-warning/10 transition-colors z-10 relative" onClick={e => {
               e.stopPropagation();
               onNavigate('assets', {
                 availability: 'restock'
               });
             }}>
-                    <TrendingDown className="h-3 w-3" />
-                    {lowStockCount} Low
-                  </Badge>}
-              </div>}
-          </CardContent>
-        </Card>
+              <TrendingDown className="h-3 w-3" />
+              {lowStockCount} Low
+            </Badge>}
+          </div>}
+        </CardContent>
+      </Card>
 
-        {/* 2. Project Waybills */}
-        <Card className="border-0 shadow-soft hover:shadow-lg transition-all duration-300 cursor-pointer group relative overflow-hidden active:scale-[0.98]" onClick={() => onNavigate('waybills')}>
-          <div className="absolute top-0 right-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <FileText className="h-16 md:h-24 w-16 md:w-24 text-warning" />
+      {/* 2. Project Waybills */}
+      <Card className="border-0 shadow-soft hover:shadow-lg transition-all duration-300 cursor-pointer group relative overflow-hidden active:scale-[0.98]" onClick={() => onNavigate('waybills')}>
+        <div className="absolute top-0 right-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+          <FileText className="h-16 md:h-24 w-16 md:w-24 text-warning" />
+        </div>
+        <CardHeader className="pb-2 p-3 md:p-6">
+          <CardTitle className="flex items-center gap-2 text-base md:text-xl">
+            <FileText className="h-5 w-5 md:h-6 md:w-6 text-warning" />
+            Waybills
+          </CardTitle>
+          <CardDescription className="text-xs md:text-sm">Track site deployments</CardDescription>
+        </CardHeader>
+        <CardContent className="p-3 md:p-6 pt-0">
+          <div className="text-2xl md:text-3xl font-bold text-warning">{outstandingWaybills}</div>
+          <div className="text-xs md:text-sm text-muted-foreground">Outstanding</div>
+          <div className="mt-3 h-2 w-full bg-secondary rounded-full overflow-hidden">
+            <div className="h-full bg-warning/50 w-3/4 rounded-full" />
           </div>
-          <CardHeader className="pb-2 p-3 md:p-6">
-            <CardTitle className="flex items-center gap-2 text-base md:text-xl">
-              <FileText className="h-5 w-5 md:h-6 md:w-6 text-warning" />
-              Waybills
-            </CardTitle>
-            <CardDescription className="text-xs md:text-sm">Track site deployments</CardDescription>
-          </CardHeader>
-          <CardContent className="p-3 md:p-6 pt-0">
-            <div className="text-2xl md:text-3xl font-bold text-warning">{outstandingWaybills}</div>
-            <div className="text-xs md:text-sm text-muted-foreground">Outstanding</div>
-            <div className="mt-3 h-2 w-full bg-secondary rounded-full overflow-hidden">
-              <div className="h-full bg-warning/50 w-3/4 rounded-full" />
-            </div>
-            <div className="flex items-center justify-between mt-2 pt-2 border-t">
-              <p className="text-[10px] md:text-xs text-muted-foreground">Overall Waybills</p>
-              <Badge variant="outline" className="text-[10px] md:text-xs">
-                {waybills.length} Total
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 3. Returns Processing */}
-        <Card className="border-0 shadow-soft hover:shadow-lg transition-all duration-300 cursor-pointer group relative overflow-hidden active:scale-[0.98]" onClick={() => onNavigate('returns')}>
-          <div className="absolute top-0 right-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <CheckCircle className="h-16 md:h-24 w-16 md:w-24 text-blue-500" />
+          <div className="flex items-center justify-between mt-2 pt-2 border-t">
+            <p className="text-[10px] md:text-xs text-muted-foreground">Overall Waybills</p>
+            <Badge variant="outline" className="text-[10px] md:text-xs">
+              {waybills.length} Total
+            </Badge>
           </div>
-          <CardHeader className="pb-2 p-3 md:p-6">
-            <CardTitle className="flex items-center gap-2 text-base md:text-xl">
-              <CheckCircle className="h-5 w-5 md:h-6 md:w-6 text-blue-500" />
-              Returns
-            </CardTitle>
-            <CardDescription className="text-xs md:text-sm">Process returned items</CardDescription>
-          </CardHeader>
-          <CardContent className="p-3 md:p-6 pt-0">
-            <div className="text-2xl md:text-3xl font-bold text-blue-500">
-              {waybills.filter(w => w.type === 'return' && w.status === 'outstanding').length}
-            </div>
-            <div className="text-xs md:text-sm text-muted-foreground">Pending Returns</div>
-            <p className="text-[10px] md:text-xs text-muted-foreground mt-2">Items awaiting processing</p>
-          </CardContent>
-        </Card>
+        </CardContent>
+      </Card>
 
-        {/* 4. Employee Quick Checkouts */}
-        <Card className="border-0 shadow-soft hover:shadow-lg transition-all duration-300 cursor-pointer group relative overflow-hidden active:scale-[0.98]" onClick={() => onNavigate('employee-analytics')}>
-          <div className="absolute top-0 right-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <ShoppingCart className="h-16 md:h-24 w-16 md:w-24 text-purple-500" />
+      {/* 3. Returns Processing */}
+      <Card className="border-0 shadow-soft hover:shadow-lg transition-all duration-300 cursor-pointer group relative overflow-hidden active:scale-[0.98]" onClick={() => onNavigate('returns')}>
+        <div className="absolute top-0 right-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+          <CheckCircle className="h-16 md:h-24 w-16 md:w-24 text-blue-500" />
+        </div>
+        <CardHeader className="pb-2 p-3 md:p-6">
+          <CardTitle className="flex items-center gap-2 text-base md:text-xl">
+            <CheckCircle className="h-5 w-5 md:h-6 md:w-6 text-blue-500" />
+            Returns
+          </CardTitle>
+          <CardDescription className="text-xs md:text-sm">Process returned items</CardDescription>
+        </CardHeader>
+        <CardContent className="p-3 md:p-6 pt-0">
+          <div className="text-2xl md:text-3xl font-bold text-blue-500">
+            {waybills.filter(w => w.type === 'return' && w.status === 'outstanding').length}
           </div>
-          <CardHeader className="pb-2 p-3 md:p-6">
-            <CardTitle className="flex items-center gap-2 text-base md:text-xl">
-              <ShoppingCart className="h-5 w-5 md:h-6 md:w-6 text-purple-500" />
-              Checkouts
-            </CardTitle>
-            <CardDescription className="text-xs md:text-sm">Tool assignments</CardDescription>
-          </CardHeader>
-          <CardContent className="p-3 md:p-6 pt-0">
-            <div className="text-2xl md:text-3xl font-bold text-purple-500">{outstandingCheckouts}</div>
-            <div className="text-xs md:text-sm text-muted-foreground">Active</div>
-            <div className="mt-3 flex -space-x-2 overflow-hidden">
-              {[1, 2, 3].map(i => <div key={i} className="inline-block h-5 w-5 md:h-6 md:w-6 rounded-full ring-2 ring-background bg-slate-200 flex items-center justify-center text-[8px] md:text-[10px] font-bold text-slate-500">
-                  U
-                </div>)}
-            </div>
-          </CardContent>
-        </Card>
+          <div className="text-xs md:text-sm text-muted-foreground">Pending Returns</div>
+          <p className="text-[10px] md:text-xs text-muted-foreground mt-2">Items awaiting processing</p>
+        </CardContent>
+      </Card>
 
-        {/* 5. Sites */}
-        <Card className="border-0 shadow-soft hover:shadow-lg transition-all duration-300 cursor-pointer group relative overflow-hidden active:scale-[0.98]" onClick={() => onNavigate('sites')}>
-          <div className="absolute top-0 right-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <MapPin className="h-16 md:h-24 w-16 md:w-24 text-green-500" />
+      {/* 4. Employee Quick Checkouts */}
+      <Card className="border-0 shadow-soft hover:shadow-lg transition-all duration-300 cursor-pointer group relative overflow-hidden active:scale-[0.98]" onClick={() => onNavigate('employee-analytics')}>
+        <div className="absolute top-0 right-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+          <ShoppingCart className="h-16 md:h-24 w-16 md:w-24 text-purple-500" />
+        </div>
+        <CardHeader className="pb-2 p-3 md:p-6">
+          <CardTitle className="flex items-center gap-2 text-base md:text-xl">
+            <ShoppingCart className="h-5 w-5 md:h-6 md:w-6 text-purple-500" />
+            Checkouts
+          </CardTitle>
+          <CardDescription className="text-xs md:text-sm">Tool assignments</CardDescription>
+        </CardHeader>
+        <CardContent className="p-3 md:p-6 pt-0">
+          <div className="text-2xl md:text-3xl font-bold text-purple-500">{outstandingCheckouts}</div>
+          <div className="text-xs md:text-sm text-muted-foreground">Active</div>
+          <div className="mt-3 flex -space-x-2 overflow-hidden">
+            {[1, 2, 3].map(i => <div key={i} className="inline-block h-5 w-5 md:h-6 md:w-6 rounded-full ring-2 ring-background bg-slate-200 flex items-center justify-center text-[8px] md:text-[10px] font-bold text-slate-500">
+              U
+            </div>)}
           </div>
-          <CardHeader className="pb-2 p-3 md:p-6">
-            <CardTitle className="flex items-center gap-2 text-base md:text-xl">
-              <MapPin className="h-5 w-5 md:h-6 md:w-6 text-green-500" />
-              Sites
+        </CardContent>
+      </Card>
+
+      {/* 5. Sites */}
+      <Card className="border-0 shadow-soft hover:shadow-lg transition-all duration-300 cursor-pointer group relative overflow-hidden active:scale-[0.98]" onClick={() => onNavigate('sites')}>
+        <div className="absolute top-0 right-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+          <MapPin className="h-16 md:h-24 w-16 md:w-24 text-green-500" />
+        </div>
+        <CardHeader className="pb-2 p-3 md:p-6">
+          <CardTitle className="flex items-center gap-2 text-base md:text-xl">
+            <MapPin className="h-5 w-5 md:h-6 md:w-6 text-green-500" />
+            Sites
+          </CardTitle>
+          <CardDescription className="text-xs md:text-sm">Project locations</CardDescription>
+        </CardHeader>
+        <CardContent className="p-3 md:p-6 pt-0">
+          <div className="text-2xl md:text-3xl font-bold text-green-500">
+            {sites.filter(s => s.status === 'active').length}
+          </div>
+          <div className="text-xs md:text-sm text-muted-foreground">Active Sites</div>
+          <div className="flex items-center justify-between mt-2 pt-2 border-t">
+            <p className="text-[10px] md:text-xs text-muted-foreground">Total sites</p>
+            <Badge variant="outline" className="text-[10px] md:text-xs">
+              {sites.length}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+
+
+
+
+
+    {/* Notification Panel */}
+    <NotificationPanel assets={assets} sites={sites} equipmentLogs={equipmentLogs} employees={employees} onQuickLogEquipment={onQuickLogEquipment} />
+
+    {/* Category Breakdown - Hidden on very small screens, collapsible */}
+    <div className="hidden sm:grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
+      {renderCategoryCard("Dewatering", dewateringAssets, <Package className="h-5 w-5 text-primary" />, "dewatering", "0.6s")}
+      {renderCategoryCard("Waterproofing", waterproofingAssets, <CheckCircle className="h-5 w-5 text-accent" />, "waterproofing", "0.7s")}
+      {renderCategoryCard("Tiling", tilingAssets, <Package className="h-5 w-5 text-blue-500" />, "tiling", "0.8s")}
+      {renderCategoryCard("PPE", ppeAssets, <User className="h-5 w-5 text-orange-500" />, "ppe", "0.9s")}
+      {renderCategoryCard("Office", officeAssets, <FileText className="h-5 w-5 text-green-500" />, "office", "1.0s")}
+    </div>
+
+    {/* Equipment Requiring Logging */}
+    {equipmentRequiringLogging.length > 0 && <Card className="border-0 shadow-soft">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col">
+            <CardTitle className="flex items-center gap-2">
+              <Wrench className="h-5 w-5 text-primary" />
+              Equipment Requiring Logging
             </CardTitle>
-            <CardDescription className="text-xs md:text-sm">Project locations</CardDescription>
-          </CardHeader>
-          <CardContent className="p-3 md:p-6 pt-0">
-            <div className="text-2xl md:text-3xl font-bold text-green-500">
-              {sites.filter(s => s.status === 'active').length}
-            </div>
-            <div className="text-xs md:text-sm text-muted-foreground">Active Sites</div>
-            <div className="flex items-center justify-between mt-2 pt-2 border-t">
-              <p className="text-[10px] md:text-xs text-muted-foreground">Total sites</p>
-              <Badge variant="outline" className="text-[10px] md:text-xs">
-                {sites.length}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-
-
-
-
-      {/* Notification Panel */}
-      <NotificationPanel assets={assets} sites={sites} equipmentLogs={equipmentLogs} employees={employees} onQuickLogEquipment={onQuickLogEquipment} />
-
-      {/* Category Breakdown - Hidden on very small screens, collapsible */}
-      <div className="hidden sm:grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
-        {renderCategoryCard("Dewatering", dewateringAssets, <Package className="h-5 w-5 text-primary" />, "dewatering", "0.6s")}
-        {renderCategoryCard("Waterproofing", waterproofingAssets, <CheckCircle className="h-5 w-5 text-accent" />, "waterproofing", "0.7s")}
-        {renderCategoryCard("Tiling", tilingAssets, <Package className="h-5 w-5 text-blue-500" />, "tiling", "0.8s")}
-        {renderCategoryCard("PPE", ppeAssets, <User className="h-5 w-5 text-orange-500" />, "ppe", "0.9s")}
-        {renderCategoryCard("Office", officeAssets, <FileText className="h-5 w-5 text-green-500" />, "office", "1.0s")}
-      </div>
-
-      {/* Equipment Requiring Logging */}
-      {equipmentRequiringLogging.length > 0 && <Card className="border-0 shadow-soft">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col">
-                <CardTitle className="flex items-center gap-2">
-                  <Wrench className="h-5 w-5 text-primary" />
-                  Equipment Requiring Logging
-                </CardTitle>
-                <CardDescription>
-                  {equipmentRequiringLogging.length} equipment items across sites
-                </CardDescription>
-              </div>
-              <Button variant="ghost" size="sm" onClick={() => setIsEquipmentLoggingExpanded(!isEquipmentLoggingExpanded)}>
-                {isEquipmentLoggingExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </Button>
-            </div>
-          </CardHeader>
-          {isEquipmentLoggingExpanded && <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {equipmentRequiringLogging.map((equipment, index) => {
+            <CardDescription>
+              {equipmentRequiringLogging.length} equipment items across sites
+            </CardDescription>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => setIsEquipmentLoggingExpanded(!isEquipmentLoggingExpanded)}>
+            {isEquipmentLoggingExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
+        </div>
+      </CardHeader>
+      {isEquipmentLoggingExpanded && <CardContent>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {equipmentRequiringLogging.map((equipment, index) => {
             const status = getLatestStatus(equipment.id);
             const siteName = getSiteName(equipment);
             const site = getSiteForEquipment(equipment);
             return <Card key={equipment.id || index} className="border-0 shadow-soft hover:shadow-medium transition-all duration-300">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-base flex items-center justify-between">
-                          <span className="truncate">{equipment.name}</span>
-                          <Badge variant={status.active ? "default" : "secondary"} className="text-xs ml-2">
-                            {status.active ? "Active" : "Inactive"}
-                          </Badge>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="text-sm space-y-1">
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Site:</span>
-                            <span className="font-medium truncate ml-2">{siteName}</span>
-                          </div>
-                          {status.date && <div className="flex justify-between">
-                              <span className="text-muted-foreground">Last Log:</span>
-                              <span className="font-medium text-xs">
-                                {format(new Date(status.date), 'MMM dd, yyyy')}
-                              </span>
-                            </div>}
-                        </div>
-                        <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => {
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center justify-between">
+                  <span className="truncate">{equipment.name}</span>
+                  <Badge variant={status.active ? "default" : "secondary"} className="text-xs ml-2">
+                    {status.active ? "Active" : "Inactive"}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="text-sm space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Site:</span>
+                    <span className="font-medium truncate ml-2">{siteName}</span>
+                  </div>
+                  {status.date && <div className="flex justify-between">
+                    <span className="text-muted-foreground">Last Log:</span>
+                    <span className="font-medium text-xs">
+                      {format(new Date(status.date), 'MMM dd, yyyy')}
+                    </span>
+                  </div>}
+                </div>
+                <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => {
                   if (site) {
                     setSelectedEquipment(equipment);
                     setSelectedSite(site);
                     setShowAnalytics(true);
                   }
                 }} disabled={!site}>
-                          <BarChart3 className="h-4 w-4" />
-                          View Analytics
-                        </Button>
-                      </CardContent>
-                    </Card>;
-          })}
-              </div>
-            </CardContent>}
-        </Card>}
-
-      {/* Recent Activity */}
-      <Card className="border-0 shadow-soft">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Latest system activities and user actions</CardDescription>
-            </div>
-            <Popover open={showDatePicker} onOpenChange={setShowDatePicker}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <CalendarIcon className="h-4 w-4" />
-                  {format(activityDateRange.from, "MMM dd")} - {format(activityDateRange.to, "MMM dd")}
+                  <BarChart3 className="h-4 w-4" />
+                  View Analytics
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                <Calendar mode="range" selected={{
-                from: activityDateRange.from,
-                to: activityDateRange.to
-              }} onSelect={range => {
-                if (range?.from && range?.to) {
-                  setActivityDateRange({
-                    from: range.from,
-                    to: range.to
-                  });
-                  setShowDatePicker(false);
-                }
-              }} numberOfMonths={2} />
-              </PopoverContent>
-            </Popover>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {filteredActivities.slice(0, 10).map((activity, index) => {
-            // Format the action text to be more readable
-            const formatAction = (action: string): string => {
-              return action.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-            };
-
-            // Format the entity text
-            const formatEntity = (entity: string): string => {
-              return entity.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-            };
-
-            // Get site name if entityId is a site ID
-            const getDisplayEntityId = (entityId?: string): string => {
-              if (!entityId) return '';
-
-              // Check if it's a site ID pattern and get the site name
-              const site = sites.find(s => s.id === entityId);
-              if (site) {
-                return site.name;
-              }
-              return entityId;
-            };
-            return <div key={activity.id || index} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
-                  <div>
-                    <div className="font-medium flex items-center gap-2">
-                      <User className="h-4 w-4 text-primary" />
-                      {activity.userName || activity.userId}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {formatAction(activity.action)} {formatEntity(activity.entity)}
-                      {activity.entityId && ` - ${getDisplayEntityId(activity.entityId)}`}
-                    </div>
-                    {activity.details && <div className="text-xs text-muted-foreground mt-1">
-                        {activity.details}
-                      </div>}
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs text-muted-foreground">
-                      {activity.timestamp.toLocaleDateString()} {activity.timestamp.toLocaleTimeString()}
-                    </div>
-                  </div>
-                </div>;
+              </CardContent>
+            </Card>;
           })}
-            {filteredActivities.length === 0 && <div className="text-center py-8 text-muted-foreground">
-                <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No activities in selected date range</p>
-              </div>}
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </CardContent>}
+    </Card>}
 
-      {/* Analytics Dialog */}
-      {selectedEquipment && selectedSite && <Dialog open={showAnalytics} onOpenChange={setShowAnalytics}>
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                Equipment Analytics - {selectedEquipment.name} at {selectedSite.name}
-              </DialogTitle>
-            </DialogHeader>
-            <SiteMachineAnalytics site={selectedSite} equipment={[selectedEquipment]} equipmentLogs={equipmentLogs.filter(log => log.equipmentId === selectedEquipment.id && log.siteId === selectedSite.id)} selectedEquipmentId={selectedEquipment.id} />
-          </DialogContent>
-        </Dialog>}
-    </div>;
+
+
+    {/* Analytics Dialog */}
+    {selectedEquipment && selectedSite && <Dialog open={showAnalytics} onOpenChange={setShowAnalytics}>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            Equipment Analytics - {selectedEquipment.name} at {selectedSite.name}
+          </DialogTitle>
+        </DialogHeader>
+        <SiteMachineAnalytics site={selectedSite} equipment={[selectedEquipment]} equipmentLogs={equipmentLogs.filter(log => log.equipmentId === selectedEquipment.id && log.siteId === selectedSite.id)} selectedEquipmentId={selectedEquipment.id} />
+      </DialogContent>
+    </Dialog>}
+  </div>;
 };

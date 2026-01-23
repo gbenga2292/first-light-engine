@@ -110,6 +110,17 @@ async function main() {
     };
   });
 
+  ipcMain.handle('db:getCompanySettings', async () => {
+    // Return empty settings object - actual settings are fetched from Supabase
+    return {
+      companyName: '',
+      address: '',
+      phone: '',
+      email: '',
+      logo: ''
+    };
+  });
+
   // --- LLM Manager Integration (keep this for AI assistant) ---
   try {
     const { LLMManager } = await import('./llmManager.js');
