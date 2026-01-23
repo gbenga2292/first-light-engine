@@ -157,9 +157,7 @@ export const Sidebar = ({
         <div className="flex items-center gap-3">
 
           <div>
-            <h1 className="text-base md:text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              DCEL Inventory
-            </h1>
+            <h1 className="text-base md:text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">DCEL Operations</h1>
             <p className="text-[10px] md:text-sm text-muted-foreground">Inventory Manager</p>
           </div>
         </div>
