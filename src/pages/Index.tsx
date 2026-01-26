@@ -52,6 +52,8 @@ import { WaybillDocumentPage } from "@/pages/WaybillDocumentPage";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSiteInventory } from "@/hooks/useSiteInventory";
 import { SiteInventoryItem } from "@/types/inventory";
+import { PullToRefreshLayout } from "@/components/layout/PullToRefreshLayout";
+import { useNetworkStatus } from "@/hooks/use-network-status";
 import { AIAssistantProvider, useAIAssistant } from "@/contexts/AIAssistantContext";
 import { AIAssistantChat } from "@/components/ai/AIAssistantChat";
 import { logActivity } from "@/utils/activityLogger";
@@ -68,6 +70,7 @@ import { dataService } from "@/services/dataService";
 const Index = () => {
   const { toast } = useToast();
   const { isAuthenticated, hasPermission, currentUser } = useAuth();
+  const isOnline = useNetworkStatus();
 
   const isMobile = useIsMobile();
   const params = useParams();
@@ -399,6 +402,16 @@ const Index = () => {
       });
       return;
     }
+
+    if (!isOnline) {
+      toast({
+        title: "Offline Mode",
+        description: "Cannot edit assets while offline",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const assetWithUpdatedDate = {
       ...updatedAsset,
       availableQuantity: !updatedAsset.siteId ? calculateAvailableQuantity(
@@ -451,6 +464,16 @@ const Index = () => {
       });
       return;
     }
+
+    if (!isOnline) {
+      toast({
+        title: "Offline Mode",
+        description: "Cannot delete assets while offline",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (deletingAsset) {
       try {
         // Delete from database first
@@ -491,6 +514,17 @@ const Index = () => {
       });
       return;
     }
+
+    if (!isOnline) {
+      toast({
+        title: "Offline Mode",
+        description: "Cannot create waybills while offline",
+        variant: "destructive"
+      });
+      return;
+    }
+
+
 
     // Generate sequential waybill ID (client-side approximation, race condition possible but acceptable for now)
     // Ideally backend does this.
@@ -570,6 +604,15 @@ const Index = () => {
       toast({
         title: "Authentication Required",
         description: "Please login to delete waybills",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!isOnline) {
+      toast({
+        title: "Offline Mode",
+        description: "Cannot delete waybills while offline",
         variant: "destructive"
       });
       return;
@@ -1224,6 +1267,15 @@ const Index = () => {
       toast({
         title: "Authentication Required",
         description: "Please login to checkout items",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!isOnline) {
+      toast({
+        title: "Offline Mode",
+        description: "Cannot checkout items while offline",
         variant: "destructive"
       });
       return;
@@ -3438,39 +3490,41 @@ const Index = () => {
             "flex-1 overflow-y-auto overflow-x-hidden p-3 md:p-6",
             isMobile && "pb-20" // Add padding for bottom nav
           )}>
-            {isAssetInventoryTab && (
-              <div className="flex flex-col space-y-3 md:space-y-0 md:flex-row md:justify-between md:items-center mb-6">
-                <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
-                  {isAuthenticated && hasPermission('write_assets') && (
-                    <Button
-                      variant="default"
-                      onClick={() => setActiveTab("add-asset")}
-                      className="w-full sm:w-auto bg-gradient-primary"
-                      size={isMobile ? "lg" : "default"}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Asset
-                    </Button>
-                  )}
-                  {isAuthenticated && hasPermission('write_assets') && currentUser?.role !== 'staff' && <BulkImportAssets onImport={handleImport} />}
-                  <InventoryReport assets={assets} companySettings={companySettings} />
+            <PullToRefreshLayout>
+              {isAssetInventoryTab && (
+                <div className="flex flex-col space-y-3 md:space-y-0 md:flex-row md:justify-between md:items-center mb-6">
+                  <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
+                    {isAuthenticated && hasPermission('write_assets') && (
+                      <Button
+                        variant="default"
+                        onClick={() => setActiveTab("add-asset")}
+                        className="w-full sm:w-auto bg-gradient-primary"
+                        size={isMobile ? "lg" : "default"}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Asset
+                      </Button>
+                    )}
+                    {isAuthenticated && hasPermission('write_assets') && currentUser?.role !== 'staff' && <BulkImportAssets onImport={handleImport} />}
+                    <InventoryReport assets={assets} companySettings={companySettings} />
+
+                  </div>
 
                 </div>
+              )}
+              {processingReturnWaybill && (
+                <ReturnProcessingDialog
+                  waybill={processingReturnWaybill}
+                  onClose={() => setProcessingReturnWaybill(null)}
+                  onSubmit={(returnData) => {
+                    setProcessingReturnWaybill(null);
+                    handleProcessReturn(returnData);
+                  }}
+                />
+              )}
 
-              </div>
-            )}
-            {processingReturnWaybill && (
-              <ReturnProcessingDialog
-                waybill={processingReturnWaybill}
-                onClose={() => setProcessingReturnWaybill(null)}
-                onSubmit={(returnData) => {
-                  setProcessingReturnWaybill(null);
-                  handleProcessReturn(returnData);
-                }}
-              />
-            )}
-
-            {renderContent()}
+              {renderContent()}
+            </PullToRefreshLayout>
 
             {/* Edit Dialog */}
             <Dialog open={!!editingAsset} onOpenChange={open => !open && setEditingAsset(null)}>
