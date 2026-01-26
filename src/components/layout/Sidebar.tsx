@@ -18,7 +18,8 @@ export const Sidebar = ({
   const {
     isAuthenticated,
     logout,
-    hasPermission
+    hasPermission,
+    currentUser
   } = useAuth();
   const navigate = useNavigate();
   const {
@@ -62,7 +63,13 @@ export const Sidebar = ({
     label: "Recent Activities",
     icon: History
   }];
-  const menuItems = authenticatedMenuItems;
+
+  const menuItems = authenticatedMenuItems.filter(item => {
+    if (item.id === 'recent-activities') {
+      return currentUser?.role === 'admin';
+    }
+    return true;
+  });
 
   // Define required permissions for each menu item
   const getRequiredPermissions = (itemId: string) => {
@@ -126,7 +133,7 @@ export const Sidebar = ({
     <div className="p-2 border-t border-border space-y-2">
       {isAuthenticated ? <div className="flex items-center gap-1.5">
         <div className="flex-1 min-w-0 px-2 py-1 bg-muted/50 rounded">
-          <p className="text-xs font-medium truncate">{useAuth().currentUser?.name}</p>
+          <p className="text-xs font-medium truncate">{currentUser?.name}</p>
         </div>
         <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
           {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}

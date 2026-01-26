@@ -23,6 +23,7 @@ import { useAuth, User, UserRole } from "@/contexts/AuthContext";
 import { EmployeeAnalytics } from "./EmployeeAnalytics";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { dataService } from "@/services/dataService";
+import { Combobox } from "@/components/ui/combobox";
 
 interface CompanySettingsProps {
   settings: CompanySettingsType;
@@ -2135,10 +2136,43 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
       );
     }
 
-
-
     return tabs;
   }, [currentUser?.role, hasPermission]);
+
+  // Derived list of roles for Combobox (Standard + Custom/Existing)
+  const employeeRoles = useMemo(() => {
+    const standardRoles = [
+      "Head of Admin",
+      "Head of Operations",
+      "Projects Supervisor",
+      "Logistics and Warehouse Officer",
+      "Admin Manager",
+      "Admin Assistant",
+      "Foreman",
+      "Engineer",
+      "Trainee Site Manager",
+      "Site Supervisor",
+      "Admin Clerk",
+      "Assistant Supervisor",
+      "Site Worker",
+      "Driver",
+      "Security",
+      "Adhoc Staff",
+      "Consultant",
+      "IT Student",
+      "Manager",
+      "Staff"
+    ];
+
+    // Add any roles that exist in the employee list but aren't in standard
+    const currentRoles = employees.map(e => e.role).filter(Boolean);
+    const allRoles = Array.from(new Set([...standardRoles, ...currentRoles]));
+
+    return allRoles.sort().map(role => ({
+      value: role,
+      label: role
+    }));
+  }, [employees]);
 
   const [activeSettingsTab, setActiveSettingsTab] = useState("company");
 
@@ -2702,19 +2736,13 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
                               placeholder="Employee Name"
                               className="flex-1"
                             />
-                            <Select
+                            <Combobox
+                              options={employeeRoles}
                               value={tempEmployeeRole}
                               onValueChange={(value) => setTempEmployeeRole(value)}
-                            >
-                              <SelectTrigger className="w-24">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="driver">Driver</SelectItem>
-                                <SelectItem value="manager">Manager</SelectItem>
-                                <SelectItem value="staff">Staff</SelectItem>
-                              </SelectContent>
-                            </Select>
+                              placeholder="Select Role"
+                              className="w-48"
+                            />
                             <Button size="sm" onClick={handleSaveEmployeeEdit}>Save</Button>
                             <Button size="sm" variant="outline" onClick={handleCancelEmployeeEdit}>Cancel</Button>
                           </div>
@@ -2766,31 +2794,13 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
                   onChange={(e) => setEmployeeName(e.target.value)}
                   placeholder="Employee Name"
                 />
-                <Select value={employeeRole} onValueChange={(value) => setEmployeeRole(value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Head of Admin">Head of Admin</SelectItem>
-                    <SelectItem value="Head of Operations">Head of Operations</SelectItem>
-                    <SelectItem value="Projects Supervisor">Projects Supervisor</SelectItem>
-                    <SelectItem value="Logistics and Warehouse Officer">Logistics and Warehouse Officer</SelectItem>
-                    <SelectItem value="Admin Manager">Admin Manager</SelectItem>
-                    <SelectItem value="Admin Assistant">Admin Assistant</SelectItem>
-                    <SelectItem value="Foreman">Foreman</SelectItem>
-                    <SelectItem value="Engineer">Engineer</SelectItem>
-                    <SelectItem value="Trainee Site Manager">Trainee Site Manager</SelectItem>
-                    <SelectItem value="Site Supervisor">Site Supervisor</SelectItem>
-                    <SelectItem value="Admin Clerk">Admin Clerk</SelectItem>
-                    <SelectItem value="Assistant Supervisor">Assistant Supervisor</SelectItem>
-                    <SelectItem value="Site Worker">Site Worker</SelectItem>
-                    <SelectItem value="Driver">Driver</SelectItem>
-                    <SelectItem value="Security">Security</SelectItem>
-                    <SelectItem value="Adhoc Staff">Adhoc Staff</SelectItem>
-                    <SelectItem value="Consultant">Consultant</SelectItem>
-                    <SelectItem value="IT Student">IT Student</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  options={employeeRoles}
+                  value={employeeRole}
+                  onValueChange={(value) => setEmployeeRole(value)}
+                  placeholder="Select or Type Role"
+                  className="w-full"
+                />
                 <Input
                   value={employeeEmail}
                   onChange={(e) => setEmployeeEmail(e.target.value)}
