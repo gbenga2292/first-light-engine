@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,8 +20,19 @@ export const PersonalInfoCard: React.FC<PersonalInfoCardProps> = ({ onSave, isLo
   const [formData, setFormData] = useState({
     name: currentUser?.name || '',
     email: currentUser?.email || '',
-    bio: currentUser?.email || '', // Using email as bio placeholder
+    bio: currentUser?.email || '',
   });
+
+  // Sync form data when currentUser changes (e.g. after login or refresh)
+  useEffect(() => {
+    if (currentUser) {
+      setFormData({
+        name: currentUser.name || '',
+        email: currentUser.email || '',
+        bio: currentUser.email || '',
+      });
+    }
+  }, [currentUser]);
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
