@@ -14,7 +14,7 @@ interface PersonalInfoCardProps {
 }
 
 export const PersonalInfoCard: React.FC<PersonalInfoCardProps> = ({ onSave, isLoading = false }) => {
-  const { currentUser, updateUser } = useAuth();
+  const { currentUser, updateUser, refreshCurrentUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -38,6 +38,7 @@ export const PersonalInfoCard: React.FC<PersonalInfoCardProps> = ({ onSave, isLo
           name: formData.name,
           email: formData.email,
         });
+        await refreshCurrentUser();
       }
       toast.success('Profile updated successfully');
       setIsEditing(false);
