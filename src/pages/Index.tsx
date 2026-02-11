@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { logger } from "@/lib/logger";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Dashboard } from "@/components/dashboard/Dashboard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Menu, Plus, Bot, Package, ChevronDown, FileText, Activity, Eye } from "lucide-react";
+import { Menu, Plus, Package, ChevronDown, FileText, Activity, Eye } from "lucide-react";
 import { AppMenuBar } from "@/components/layout/AppMenuBar";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,7 @@ import { ReturnWaybillForm } from "@/components/waybills/ReturnWaybillForm";
 import { ReturnWaybillDocument } from "@/components/waybills/ReturnWaybillDocument";
 import { ReturnProcessingDialog } from "@/components/waybills/ReturnProcessingDialog";
 import { QuickCheckoutForm } from "@/components/checkout/QuickCheckoutForm";
+import { RecentCheckoutActivityPage } from "@/components/checkout/RecentCheckoutActivityPage";
 import { EmployeeAnalyticsPage } from "@/pages/EmployeeAnalyticsPage";
 import { RecentActivitiesPage } from "@/pages/RecentActivitiesPage";
 
@@ -38,6 +39,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ResponsiveFormContainer } from "@/components/ui/responsive-form-container";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -54,17 +56,23 @@ import { useSiteInventory } from "@/hooks/useSiteInventory";
 import { SiteInventoryItem } from "@/types/inventory";
 import { PullToRefreshLayout } from "@/components/layout/PullToRefreshLayout";
 import { useNetworkStatus } from "@/hooks/use-network-status";
-import { AIAssistantProvider, useAIAssistant } from "@/contexts/AIAssistantContext";
-import { AIAssistantChat } from "@/components/ai/AIAssistantChat";
+import { useActivityTracking } from "@/hooks/useActivityTracking";
+
 import { logActivity } from "@/utils/activityLogger";
+import { SiteWorkerDashboard } from "@/pages/SiteWorkerDashboard";
+import { RequestsPage } from "@/pages/RequestsPage";
 import { calculateAvailableQuantity } from "@/utils/assetCalculations";
 import { AuditCharts } from "@/components/reporting/AuditCharts";
 import { MachineMaintenancePage } from "@/components/maintenance/MachineMaintenancePage";
 import { Machine, MaintenanceLog } from "@/types/maintenance";
 import { generateUnifiedReport } from "@/utils/unifiedReportGenerator";
+import { generateProfessionalPDF } from "@/utils/professionalPDFGenerator";
+import { Capacitor } from "@capacitor/core";
+import { handleMobilePdfAction } from "@/utils/mobilePdfUtils";
 import { exportAssetsToExcel } from "@/utils/exportUtils";
 import { useAppData } from "@/contexts/AppDataContext";
 import { dataService } from "@/services/dataService";
+import { NetworkStatus } from "@/components/NetworkStatus";
 
 
 const Index = () => {
@@ -72,16 +80,34 @@ const Index = () => {
   const { isAuthenticated, hasPermission, currentUser } = useAuth();
   const isOnline = useNetworkStatus();
 
+  // Track user activity for last active timestamp
+  useActivityTracking();
+
+
   const isMobile = useIsMobile();
   const params = useParams();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(location.state?.activeTab || "dashboard");
   const [activeAvailabilityFilter, setActiveAvailabilityFilter] = useState<'all' | 'ready' | 'restock' | 'critical' | 'out' | 'issues' | 'reserved'>('all');
 
   // Reset scroll on tab change
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [activeTab]);
+
+  // Pick up pending active tab set by other pages (e.g., ProfilePage)
+  useEffect(() => {
+    try {
+      const pending = sessionStorage.getItem('pending_active_tab');
+      if (pending) {
+        setActiveTab(pending);
+        sessionStorage.removeItem('pending_active_tab');
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedWaybillForView, setSelectedWaybillForView] = useState<Waybill | null>(null);
   const [selectedReturnWaybillForView, setSelectedReturnWaybillForView] = useState<Waybill | null>(null);
@@ -91,8 +117,7 @@ const Index = () => {
   const [editingReturnWaybill, setEditingReturnWaybill] = useState<Waybill | null>(null);
   const [selectedAssetForAnalytics, setSelectedAssetForAnalytics] = useState<Asset | null>(null);
   const [analyticsReturnTo, setAnalyticsReturnTo] = useState<{ view: string; tab: string } | null>(null);
-  const [showAIAssistant, setShowAIAssistant] = useState(false);
-  const [aiPrefillData, setAiPrefillData] = useState<any>(null);
+
   const [selectedSiteForInventory, setSelectedSiteForInventory] = useState<Site | null>(null);
   const [selectedSiteForReturnWaybill, setSelectedSiteForReturnWaybill] = useState<Site | null>(null);
 
@@ -116,7 +141,7 @@ const Index = () => {
   // Analytics State
   const [selectedSiteForAnalytics, setSelectedSiteForAnalytics] = useState<Site | null>(null);
   const [analyticsTab, setAnalyticsTab] = useState<'equipment' | 'consumables'>('equipment');
-  const [selectedAssetForDetails, setSelectedAssetForDetails] = useState<{ site: Site, asset: Asset } | null>(null);
+  const [selectedAssetForDetails, setSelectedAssetForDetails] = useState<{ site: Site, asset: Asset, initialTab?: string } | null>(null);
   // Use AppData Context to avoid redundant fetching
   const {
     employees, setEmployees,
@@ -277,6 +302,22 @@ const Index = () => {
       window.removeEventListener('trigger-audit-export', handleAuditExportTrigger as EventListener);
     };
   }, [isAuthenticated, assets, companySettings]);
+
+  const [siteWorkerView, setSiteWorkerView] = useState(false);
+  const isSiteWorker = currentUser?.role === 'site_worker';
+
+  useEffect(() => {
+    if (activeTab === 'site-worker-view') {
+      setSiteWorkerView(true);
+      // Optional: Reset tab or leave it. When returning, it might re-trigger if not careful.
+      // But Since SiteWorkerDashboard replaces the view, when we exit we call setSiteWorkerView(false).
+      // If we don't change activeTab back, this effect might re-run or stay stuck.
+      // Better to reset activeTab immediately after setting view.
+      setActiveTab('dashboard');
+    }
+  }, [activeTab]);
+
+
 
   // Handle Audit Generation Process (Auto-run when dialog opens)
   useEffect(() => {
@@ -505,7 +546,7 @@ const Index = () => {
     }
   };
 
-  const handleCreateWaybill = async (waybillData: Partial<Waybill>) => {
+  const handleCreateWaybill = async (waybillData: Partial<Waybill>, sourceRequestId?: string) => {
     if (!isAuthenticated) {
       toast({
         title: "Authentication Required",
@@ -584,6 +625,14 @@ const Index = () => {
         entityId: newWaybill.id,
         details: `Created waybill ${newWaybill.id} with ${newWaybill.items.length} items`
       });
+
+      if (sourceRequestId) {
+        await dataService.requests.updateRequest(sourceRequestId, {
+          status: 'fulfilled',
+          waybillId: newWaybill.id,
+          updatedAt: new Date()
+        });
+      }
 
       toast({
         title: "Waybill Created",
@@ -731,7 +780,7 @@ const Index = () => {
     }
   };
 
-  const handleSentToSite = async (waybill: Waybill, sentToSiteDate: Date) => {
+  const handleSentToSite = async (waybill: Waybill, sentToSiteDate: Date, signWithSignature: boolean = false) => {
     try {
       // 1. Update items: Add to Site (keep reserved status)
       for (const item of waybill.items) {
@@ -757,10 +806,28 @@ const Index = () => {
       }
 
       // 2. Update Waybill
+      // Get signature if requested
+      let signatureUrl: string | undefined;
+      let signatureName: string | undefined;
+
+      if (signWithSignature && currentUser) {
+        try {
+          const sigRes = await (dataService.auth as any).getSignature?.(currentUser.id);
+          if (sigRes?.success && sigRes.url) {
+            signatureUrl = sigRes.url;
+            signatureName = currentUser.name;
+          }
+        } catch (e) {
+          console.warn('Failed to get signature', e);
+        }
+      }
+
       const updatedWaybill = {
         ...waybill,
         status: 'open' as const, // 'open' means active at site
         sentToSiteDate: sentToSiteDate,
+        signatureUrl,
+        signatureName,
         updatedAt: new Date()
       };
       await dataService.waybills.updateWaybill(waybill.id, updatedWaybill);
@@ -796,6 +863,10 @@ const Index = () => {
         setShowWaybillDocument(updatedWaybill);
       }
 
+      // Signature is now saved to the waybill record
+      // Users can print/download the signed PDF later using the Print/Download buttons
+
+
       await logActivity({
         action: 'move',
         entity: 'waybill',
@@ -826,6 +897,9 @@ const Index = () => {
     purpose: string;
     service: string;
     expectedReturnDate?: Date;
+    signatureUrl?: string;
+    signatureName?: string;
+    signatureRole?: string;
   }) => {
     if (!isAuthenticated) {
       toast({
@@ -908,7 +982,10 @@ const Index = () => {
       type: 'return' as const,
       createdAt: new Date(),
       updatedAt: new Date(),
-      createdBy: currentUser?.name || 'Unknown User'
+      createdBy: currentUser?.name || 'Unknown User',
+      signatureUrl: waybillData.signatureUrl,
+      signatureName: waybillData.signatureName,
+      signatureRole: waybillData.signatureRole
     } as Waybill;
 
     try {
@@ -1143,8 +1220,8 @@ const Index = () => {
     setActiveTab('site-analytics'); // Ensure activeTab is also set
   };
 
-  const handleViewAssetDetails = (site: Site, asset: Asset) => {
-    setSelectedAssetForDetails({ site, asset });
+  const handleViewAssetDetails = (site: Site, asset: Asset, initialTab?: string) => {
+    setSelectedAssetForDetails({ site, asset, initialTab });
     setCurrentView('site-asset-details');
     setActiveTab('site-asset-details'); // Ensure activeTab is also set
   };
@@ -1887,6 +1964,41 @@ const Index = () => {
               variant: "destructive"
             });
           }
+        }} onBulkLogEquipment={async (logs: EquipmentLog[]) => {
+          if (!isAuthenticated) {
+            toast({
+              title: "Authentication Required",
+              description: "Please login to add equipment logs",
+              variant: "destructive"
+            });
+            return;
+          }
+
+          try {
+            for (const log of logs) {
+              await dataService.equipmentLogs.createEquipmentLog(log);
+            }
+            const allLogs = await dataService.equipmentLogs.getEquipmentLogs();
+            setEquipmentLogs(allLogs);
+            toast({
+              title: "Bulk Equipment Logs Added",
+              description: `${logs.length} equipment logs saved successfully`
+            });
+
+            await logActivity({
+              action: 'create',
+              entity: 'equipment_log',
+              entityId: logs[0]?.id || 'bulk',
+              details: `Created ${logs.length} equipment logs in bulk`
+            });
+          } catch (error) {
+            logger.error('Failed to save bulk equipment logs', error);
+            toast({
+              title: "Error",
+              description: "Failed to save equipment logs to database.",
+              variant: "destructive"
+            });
+          }
         }} onNavigate={(tab, params) => {
           setActiveTab(tab);
           if (tab === 'assets' && params?.availability) {
@@ -1895,7 +2007,7 @@ const Index = () => {
         }} />
       case "machine-maintenance":
         return <MachineMaintenancePage
-          machines={assets.filter(a => a.type === 'equipment').map(a => ({
+          machines={assets.filter(a => a.type === 'equipment' && a.requiresLogging).map(a => ({
             id: a.id,
             name: a.name,
             model: a.model,
@@ -1920,6 +2032,8 @@ const Index = () => {
         />;
       case "recent-activities":
         return <RecentActivitiesPage />;
+      case "requests":
+        return <RequestsPage />;
       case "assets":
         return <AssetTable
           assets={assets}
@@ -1970,7 +2084,7 @@ const Index = () => {
             onAddAsset={handleAddAsset}
             sites={sites}
             existingAssets={assets}
-            initialData={aiPrefillData?.formType === 'asset' ? aiPrefillData : undefined}
+
           />
         ) : <div>You must be logged in to add assets.</div>;
       case "waybill-document":
@@ -2005,7 +2119,7 @@ const Index = () => {
           vehicles={vehicles}
           onCreateWaybill={handleCreateWaybill}
           onCancel={() => setActiveTab("dashboard")}
-          initialData={aiPrefillData?.formType === 'waybill' ? aiPrefillData : undefined}
+
         />;
       case "waybills":
         return (
@@ -2074,6 +2188,7 @@ const Index = () => {
           employees={employees}
           vehicles={vehicles}
           siteInventory={getSiteInventory(selectedSite.id)}
+          waybills={waybills}
           onCreateReturnWaybill={handleCreateReturnWaybill}
           onCancel={() => {
             setActiveTab("site-waybills");
@@ -2090,6 +2205,14 @@ const Index = () => {
           onPartialReturn={handlePartialReturn}
           onDeleteCheckout={handleDeleteCheckout}
           onNavigateToAnalytics={() => setActiveTab("employee-analytics")}
+          onNavigateToActivity={() => setActiveTab("checkout-activity")}
+        />;
+      case "checkout-activity":
+        return <RecentCheckoutActivityPage
+          quickCheckouts={quickCheckouts}
+          assets={assets}
+          employees={employees}
+          onBack={() => setActiveTab("quick-checkout")}
         />;
       case "employee-analytics":
         return <EmployeeAnalyticsPage
@@ -2100,18 +2223,7 @@ const Index = () => {
           onUpdateStatus={handleUpdateQuickCheckoutStatus}
         />;
 
-      case "machine-maintenance":
-        return (
-          <MachineMaintenancePage
-            machines={machines}
-            maintenanceLogs={maintenanceLogs}
-            assets={assets}
-            sites={sites}
-            employees={employees}
-            vehicles={vehicles}
-            onSubmitMaintenance={handleSubmitMaintenance}
-          />
-        );
+
 
       case "settings":
         return (
@@ -2229,11 +2341,14 @@ const Index = () => {
             consumableLogs={consumableLogs}
             siteInventory={siteInventory}
             getSiteInventory={getSiteInventory}
-            aiPrefillData={aiPrefillData?.formType === 'site' ? aiPrefillData : undefined}
+
             onViewSiteInventory={(site) => {
               setSelectedSiteForInventory(site);
               setActiveTab('site-inventory');
             }}
+            onViewAssetHistory={(site, asset) => handleViewAssetDetails(site, asset, 'history')}
+            onViewAssetDetails={(site, asset) => handleViewAssetDetails(site, asset)}
+            onViewAssetAnalytics={(site, asset) => handleViewAssetDetails(site, asset, 'analytics')}
             onAddSite={async site => {
               if (!isAuthenticated) {
                 toast({
@@ -2555,7 +2670,7 @@ const Index = () => {
 
             <div className="space-y-6">
               {/* Materials List */}
-              <Collapsible defaultOpen={true} className="space-y-4">
+              <Collapsible defaultOpen={false} className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Package className="h-5 w-5" />
@@ -2627,13 +2742,8 @@ const Index = () => {
                 }}
                 onViewAnalytics={() => handleViewAnalytics(selectedSiteForInventory, 'equipment')}
                 onViewAssetDetails={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset)}
-                onViewAssetHistory={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset)}
-                onViewAssetAnalytics={(asset) => {
-                  setAnalyticsReturnTo({ view: 'site-inventory', tab: 'site-inventory' });
-                  setSelectedAssetForAnalytics(asset);
-                  setCurrentView('asset-analytics');
-                  setActiveTab('asset-analytics');
-                }}
+                onViewAssetHistory={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset, 'history')}
+                onViewAssetAnalytics={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset, 'analytics')}
               />
 
               {/* Consumables Section */}
@@ -2663,17 +2773,12 @@ const Index = () => {
                 }}
                 onViewAnalytics={() => handleViewAnalytics(selectedSiteForInventory, 'consumables')}
                 onViewAssetDetails={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset)}
-                onViewAssetHistory={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset)}
-                onViewAssetAnalytics={(asset) => {
-                  setAnalyticsReturnTo({ view: 'site-inventory', tab: 'site-inventory' });
-                  setSelectedAssetForAnalytics(asset);
-                  setCurrentView('asset-analytics');
-                  setActiveTab('asset-analytics');
-                }}
+                onViewAssetHistory={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset, 'history')}
+                onViewAssetAnalytics={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset, 'analytics')}
               />
 
               {/* Waybills List */}
-              <Collapsible defaultOpen={true} className="space-y-4">
+              <Collapsible defaultOpen={false} className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <FileText className="h-5 w-5" />
@@ -2783,6 +2888,7 @@ const Index = () => {
         return selectedAssetForDetails ? (
           <SiteAssetDetailsPage
             site={selectedAssetForDetails.site}
+            initialTab={selectedAssetForDetails.initialTab}
             asset={selectedAssetForDetails.asset}
             equipmentLogs={equipmentLogs}
             consumableLogs={consumableLogs}
@@ -2834,20 +2940,20 @@ const Index = () => {
         ) : null;
       case "view-site-transactions":
         return selectedSiteForTransactions ? (
-          <div className="space-y-6 animate-fade-in">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent flex items-center gap-2">
-                  <Activity className="h-6 w-6 sm:h-8 sm:w-8" />
-                  {selectedSiteForTransactions.name} - Transaction History
+          <div className="space-y-4 md:space-y-6 animate-fade-in">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent flex items-center gap-2">
+                  <Activity className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7" />
+                  <span className="truncate">{selectedSiteForTransactions.name} - Transaction History</span>
                 </h1>
-                <p className="text-sm sm:text-base text-muted-foreground mt-2">
+                <p className="text-xs sm:text-sm md:text-base text-muted-foreground mt-1 md:mt-2">
                   View all asset movements and transactions for this site
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <Select value={transactionsView} onValueChange={(value) => setTransactionsView(value as 'table' | 'tree' | 'flow')}>
-                  <SelectTrigger className="w-[150px]">
+                  <SelectTrigger className="w-full sm:w-[140px] md:w-[150px] h-9">
                     <SelectValue placeholder="View" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2858,18 +2964,21 @@ const Index = () => {
                 </Select>
                 <Button
                   variant="outline"
+                  size={isMobile ? "sm" : "default"}
                   onClick={() => {
                     setActiveTab('site-inventory');
                     setSelectedSiteForTransactions(null);
                   }}
+                  className="w-full sm:w-auto"
                 >
+                  <Eye className="h-4 w-4 mr-2" />
                   Back to Site Inventory
                 </Button>
               </div>
             </div>
 
             <Card className="border-0 shadow-soft">
-              <CardContent className="p-6">
+              <CardContent className="p-3 sm:p-4 md:p-6">
                 <div className="space-y-4">
                   {transactionsView === 'tree' ? (
                     // Tree View - Group by referenceId (waybill) or date
@@ -3078,6 +3187,7 @@ const Index = () => {
                   employees={employees}
                   vehicles={vehicles}
                   siteInventory={getSiteInventory(selectedSiteForReturnWaybill.id)}
+                  waybills={waybills}
                   onCreateReturnWaybill={(waybillData) => {
                     handleCreateReturnWaybill(waybillData);
                     setActiveTab('site-inventory');
@@ -3303,141 +3413,17 @@ const Index = () => {
     });
   };
 
-  // Handle AI assistant actions
-  const handleAIAction = (action: any) => {
-    if (!action) return;
-
-    if (action.type === 'open_form' && action.data) {
-      const { formType, prefillData } = action.data;
-
-      // Store prefill data with formType embedded
-      setAiPrefillData({ ...prefillData, formType });
-
-      // Close AI assistant
-      setShowAIAssistant(false);
-
-      // Navigate to appropriate tab
-      switch (formType) {
-        case 'waybill':
-          setActiveTab('create-waybill');
-          toast({
-            title: "Waybill Form Ready",
-            description: "Form populated with AI-extracted data",
-          });
-          break;
-
-        case 'asset':
-          setActiveTab('add-asset');
-          toast({
-            title: "Asset Form Ready",
-            description: "Form populated with AI-extracted data",
-          });
-          break;
-
-        case 'return':
-          setActiveTab('waybills');
-          toast({
-            title: "Return Form Ready",
-            description: "Form populated with AI-extracted data",
-          });
-          break;
-
-        case 'site':
-          setActiveTab('sites');
-          toast({
-            title: "Site Form Ready",
-            description: "Form populated with AI-extracted data",
-          });
-          break;
-
-        default:
-          toast({
-            title: "Action Triggered",
-            description: `${formType} form will open`,
-          });
-      }
-    } else if (action.type === 'execute_action' && action.data) {
-      const { action: actionType, waybillId, analyticsType, siteId, ...prefillData } = action.data;
-
-      if (actionType === 'open_analytics') {
-        setActiveTab('dashboard');
-        setShowAIAssistant(false);
-        toast({
-          title: "Opening Analytics",
-          description: siteId ? `Analytics for site` : "Opening analytics dashboard",
-        });
-      } else if (actionType === 'view_waybill' && waybillId) {
-        const waybill = waybills.find(wb => wb.id === waybillId);
-        if (waybill) {
-          if (waybill.type === 'return') {
-            setShowReturnWaybillDocument(waybill);
-          } else {
-            setShowWaybillDocument(waybill);
-          }
-          setShowAIAssistant(false);
-          toast({
-            title: "Viewing Waybill",
-            description: `Opening waybill ${waybillId}`,
-          });
-        } else {
-          toast({
-            title: "Waybill Not Found",
-            description: `Could not find waybill with ID ${waybillId}`,
-            variant: "destructive"
-          });
-        }
-      } else if (actionType === 'create_waybill') {
-        setAiPrefillData({ ...prefillData, formType: 'waybill' });
-        setActiveTab('create-waybill');
-        setShowAIAssistant(false);
-        toast({
-          title: "Waybill Form Ready",
-          description: "Form populated with AI-extracted data",
-        });
-      } else if (actionType === 'create_asset') {
-        setAiPrefillData({ ...prefillData, formType: 'asset' });
-        setActiveTab('add-asset');
-        setShowAIAssistant(false);
-        toast({
-          title: "Asset Form Ready",
-          description: "Form populated with AI-extracted data",
-        });
-      } else if (actionType === 'create_site') {
-        setAiPrefillData({ ...prefillData, formType: 'site' });
-        setActiveTab('sites');
-        setShowAIAssistant(false);
-        toast({
-          title: "Site Form Ready",
-          description: "Form populated with AI-extracted data",
-        });
-      }
-    }
-  };
-
-  // Clear AI prefill data when switching tabs (to prevent stale data)
-  useEffect(() => {
-    setAiPrefillData(null);
-  }, [activeTab]);
-
   const isAssetInventoryTab = activeTab === "assets";
 
-  // Calculate AI enabled state (handle all boolean/string/number falsey variants)
-  const aiConfig = (companySettings as any)?.ai?.remote;
-  const aiEnabledVal = aiConfig?.enabled;
-
-  // Default to false (disabled) if undefined or null. Only enable if explicitly true/truthy.
-  // We exclude 'false' string and '0' string which might be truthy in JS but mean false here.
-  const isAIEnabled = !!aiEnabledVal && aiEnabledVal !== 'false' && aiEnabledVal !== '0';
+  if (isAuthenticated && (isSiteWorker || siteWorkerView)) {
+    return <SiteWorkerDashboard isSimulated={!isSiteWorker} onExit={() => setSiteWorkerView(false)} />;
+  }
 
   return (
-    <AIAssistantProvider
-      aiEnabled={isAIEnabled}
-      assets={assets}
-      sites={sites}
-      employees={employees}
-      vehicles={vehicles}
-      onAction={handleAIAction}
-    >
+    <>
+
+
+
       <div className="flex flex-col h-screen overflow-hidden bg-background">
         {/* Custom Menu Bar for Desktop */}
         <div className="hidden md:block">
@@ -3472,8 +3458,13 @@ const Index = () => {
             <Sidebar
               activeTab={activeTab}
               onTabChange={(tab) => {
-                setActiveTab(tab);
-                setMobileMenuOpen(false);
+                if (tab === 'site-worker-view') {
+                  setSiteWorkerView(true);
+                  setMobileMenuOpen(false);
+                } else {
+                  setActiveTab(tab);
+                  setMobileMenuOpen(false);
+                }
               }}
               mode="mobile"
             />
@@ -3483,7 +3474,19 @@ const Index = () => {
         <div className="flex flex-1 overflow-hidden">
           {/* Desktop Sidebar */}
           {!isMobile && (
-            <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+            <Sidebar
+              activeTab={activeTab}
+              onTabChange={(tab) => {
+                if (tab === 'site-worker-view') {
+                  setSiteWorkerView(true);
+                  setMobileMenuOpen(false);
+                } else {
+                  setActiveTab(tab);
+                  setMobileMenuOpen(false);
+                }
+              }}
+              mode="desktop"
+            />
           )}
 
           <main className={cn(
@@ -3492,24 +3495,48 @@ const Index = () => {
           )}>
             <PullToRefreshLayout>
               {isAssetInventoryTab && (
-                <div className="flex flex-col space-y-3 md:space-y-0 md:flex-row md:justify-between md:items-center mb-6">
-                  <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
-                    {isAuthenticated && hasPermission('write_assets') && (
-                      <Button
-                        variant="default"
-                        onClick={() => setActiveTab("add-asset")}
-                        className="w-full sm:w-auto bg-gradient-primary"
-                        size={isMobile ? "lg" : "default"}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Asset
-                      </Button>
-                    )}
-                    {isAuthenticated && hasPermission('write_assets') && currentUser?.role !== 'staff' && <BulkImportAssets onImport={handleImport} />}
-                    <InventoryReport assets={assets} companySettings={companySettings} />
-
-                  </div>
-
+                <div className="flex items-center justify-between gap-3 mb-4 md:mb-6">
+                  {/* Mobile: Compact row layout */}
+                  {isMobile ? (
+                    <>
+                      {isAuthenticated && hasPermission('write_assets') && (
+                        <Button
+                          variant="default"
+                          onClick={() => setActiveTab("add-asset")}
+                          className="flex-1 bg-gradient-primary"
+                          size="default"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Asset
+                        </Button>
+                      )}
+                      {/* Secondary actions in compact buttons */}
+                      <div className="flex gap-2">
+                        {isAuthenticated && hasPermission('write_assets') && currentUser?.role !== 'staff' && (
+                          <BulkImportAssets onImport={handleImport} />
+                        )}
+                        <InventoryReport assets={assets} companySettings={companySettings} />
+                      </div>
+                    </>
+                  ) : (
+                    /* Desktop: Full button row */
+                    <div className="flex gap-4">
+                      {isAuthenticated && hasPermission('write_assets') && (
+                        <Button
+                          variant="default"
+                          onClick={() => setActiveTab("add-asset")}
+                          className="bg-gradient-primary"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Asset
+                        </Button>
+                      )}
+                      {isAuthenticated && hasPermission('write_assets') && currentUser?.role !== 'staff' && (
+                        <BulkImportAssets onImport={handleImport} />
+                      )}
+                      <InventoryReport assets={assets} companySettings={companySettings} />
+                    </div>
+                  )}
                 </div>
               )}
               {processingReturnWaybill && (
@@ -3526,21 +3553,25 @@ const Index = () => {
               {renderContent()}
             </PullToRefreshLayout>
 
-            {/* Edit Dialog */}
-            <Dialog open={!!editingAsset} onOpenChange={open => !open && setEditingAsset(null)}>
-              <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>Edit Asset</DialogHeader>
-                {editingAsset && (
-                  <AddAssetForm
-                    asset={editingAsset}
-                    onSave={handleSaveAsset}
-                    onCancel={() => setEditingAsset(null)}
-                    sites={sites}
-                    existingAssets={assets}
-                  />
-                )}
-              </DialogContent>
-            </Dialog>
+            {/* Edit Asset - Responsive Container */}
+            <ResponsiveFormContainer
+              open={!!editingAsset}
+              onOpenChange={(open) => !open && setEditingAsset(null)}
+              title="Edit Asset"
+              subtitle={editingAsset?.name}
+              icon={<Package className="h-5 w-5" />}
+              maxWidth="max-w-7xl"
+            >
+              {editingAsset && (
+                <AddAssetForm
+                  asset={editingAsset}
+                  onSave={handleSaveAsset}
+                  onCancel={() => setEditingAsset(null)}
+                  sites={sites}
+                  existingAssets={assets}
+                />
+              )}
+            </ResponsiveFormContainer>
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={!!deletingAsset} onOpenChange={open => !open && setDeletingAsset(null)}>
@@ -3593,186 +3624,181 @@ const Index = () => {
               />
             )}
 
-            {/* Edit Waybill Dialog */}
-            <Dialog open={!!editingWaybill} onOpenChange={open => !open && setEditingWaybill(null)}>
-              <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Edit Waybill {editingWaybill?.id}</DialogTitle>
-                </DialogHeader>
-                {editingWaybill && (
-                  <EditWaybillForm
-                    waybill={editingWaybill}
-                    assets={assets}
-                    sites={sites}
-                    employees={employees}
-                    vehicles={vehicles}
-                    onUpdate={async (updatedWaybill) => {
-                      if (!isAuthenticated) return;
+            {/* Edit Waybill - Responsive Container */}
+            <ResponsiveFormContainer
+              open={!!editingWaybill}
+              onOpenChange={(open) => !open && setEditingWaybill(null)}
+              title={`Edit Waybill ${editingWaybill?.id || ''}`}
+              subtitle="Update waybill details"
+              icon={<FileText className="h-5 w-5" />}
+              maxWidth="max-w-5xl"
+            >
+              {editingWaybill && (
+                <EditWaybillForm
+                  waybill={editingWaybill}
+                  assets={assets}
+                  sites={sites}
+                  employees={employees}
+                  vehicles={vehicles}
+                  onUpdate={async (updatedWaybill) => {
+                    if (!isAuthenticated) return;
 
-                      try {
-                        // 1. Get old waybill to identify changes
-                        const oldWaybill = waybills.find(w => w.id === updatedWaybill.id);
+                    try {
+                      // 1. Get old waybill to identify changes
+                      const oldWaybill = waybills.find(w => w.id === updatedWaybill.id);
 
-                        // Handle Asset Reservation adjustments if items changed and status allows
-                        if (oldWaybill && oldWaybill.status === 'outstanding' && updatedWaybill.status === 'outstanding') {
-                          // Revert Old Items (Release reservation)
-                          for (const oldItem of oldWaybill.items) {
-                            // We fetch fresh asset state to ensure we have current counts
-                            const assetList = await dataService.assets.getAssets();
-                            const asset = assetList.find(a => a.id === oldItem.assetId);
-                            if (asset) {
-                              const newReserved = Math.max(0, (asset.reservedQuantity || 0) - oldItem.quantity);
-                              const newAvailable = calculateAvailableQuantity(
-                                asset.quantity,
-                                newReserved,
-                                asset.damagedCount,
-                                asset.missingCount,
-                                asset.usedCount || 0
-                              );
-                              await dataService.assets.updateAsset(asset.id, { ...asset, reservedQuantity: newReserved, availableQuantity: newAvailable });
-                            }
-                          }
-
-                          // Apply New Items (Add reservation)
-                          for (const newItem of updatedWaybill.items) {
-                            const assetList = await dataService.assets.getAssets();
-                            const freshAsset = assetList.find(a => a.id === newItem.assetId);
-                            if (freshAsset) {
-                              const newReserved = (freshAsset.reservedQuantity || 0) + newItem.quantity;
-                              const newAvailable = calculateAvailableQuantity(
-                                freshAsset.quantity,
-                                newReserved,
-                                freshAsset.damagedCount,
-                                freshAsset.missingCount,
-                                freshAsset.usedCount || 0
-                              );
-                              await dataService.assets.updateAsset(freshAsset.id, { ...freshAsset, reservedQuantity: newReserved, availableQuantity: newAvailable });
-                            }
+                      // Handle Asset Reservation adjustments if items changed and status allows
+                      if (oldWaybill && oldWaybill.status === 'outstanding' && updatedWaybill.status === 'outstanding') {
+                        // Revert Old Items (Release reservation)
+                        for (const oldItem of oldWaybill.items) {
+                          // We fetch fresh asset state to ensure we have current counts
+                          const assetList = await dataService.assets.getAssets();
+                          const asset = assetList.find(a => a.id === oldItem.assetId);
+                          if (asset) {
+                            const newReserved = Math.max(0, (asset.reservedQuantity || 0) - oldItem.quantity);
+                            const newAvailable = calculateAvailableQuantity(
+                              asset.quantity,
+                              newReserved,
+                              asset.damagedCount,
+                              asset.missingCount,
+                              asset.usedCount || 0
+                            );
+                            await dataService.assets.updateAsset(asset.id, { ...asset, reservedQuantity: newReserved, availableQuantity: newAvailable });
                           }
                         }
 
-                        // Update Waybill
-                        await dataService.waybills.updateWaybill(updatedWaybill.id, updatedWaybill);
-
-                        // Reload Data
-                        const loadedAssets = await dataService.assets.getAssets();
-                        setAssets(loadedAssets);
-
-                        const loadedWaybills = await dataService.waybills.getWaybills();
-                        setWaybills(loadedWaybills);
-
-                        setEditingWaybill(null);
-                        toast({
-                          title: "Waybill Updated",
-                          description: `Waybill ${updatedWaybill.id} updated successfully.`
-                        });
-                      } catch (error) {
-                        console.error('Failed to update waybill:', error);
-                        toast({
-                          title: "Error",
-                          description: `Failed to update waybill: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                          variant: "destructive"
-                        });
+                        // Apply New Items (Add reservation)
+                        for (const newItem of updatedWaybill.items) {
+                          const assetList = await dataService.assets.getAssets();
+                          const freshAsset = assetList.find(a => a.id === newItem.assetId);
+                          if (freshAsset) {
+                            const newReserved = (freshAsset.reservedQuantity || 0) + newItem.quantity;
+                            const newAvailable = calculateAvailableQuantity(
+                              freshAsset.quantity,
+                              newReserved,
+                              freshAsset.damagedCount,
+                              freshAsset.missingCount,
+                              freshAsset.usedCount || 0
+                            );
+                            await dataService.assets.updateAsset(freshAsset.id, { ...freshAsset, reservedQuantity: newReserved, availableQuantity: newAvailable });
+                          }
+                        }
                       }
-                    }}
-                    onCancel={() => setEditingWaybill(null)}
-                  />
-                )}
-              </DialogContent>
-            </Dialog>
 
-            {/* Edit Return Waybill Dialog */}
-            <Dialog open={!!editingReturnWaybill} onOpenChange={open => !open && setEditingReturnWaybill(null)}>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Edit Return Waybill</DialogTitle>
-                </DialogHeader>
-                {editingReturnWaybill ? (
-                  <ReturnWaybillForm
-                    site={sites.find(s => s.id === editingReturnWaybill.siteId) || { id: editingReturnWaybill.siteId, name: 'Unknown Site', location: '', description: '', contactPerson: '', phone: '', status: 'active', createdAt: new Date(), updatedAt: new Date() } as Site}
-                    sites={sites}
-                    assets={assets}
-                    employees={employees}
-                    vehicles={vehicles}
-                    siteInventory={getSiteInventory(editingReturnWaybill.siteId)}
-                    initialWaybill={editingReturnWaybill}
-                    isEditMode={true}
-                    onCreateReturnWaybill={handleCreateReturnWaybill}
-                    onUpdateReturnWaybill={handleUpdateReturnWaybill}
-                    onCancel={() => setEditingReturnWaybill(null)}
-                  />
-                ) : null}
-              </DialogContent>
-            </Dialog>
+                      // Update Waybill
+                      await dataService.waybills.updateWaybill(updatedWaybill.id, updatedWaybill);
+
+                      // Reload Data
+                      const loadedAssets = await dataService.assets.getAssets();
+                      setAssets(loadedAssets);
+
+                      const loadedWaybills = await dataService.waybills.getWaybills();
+                      setWaybills(loadedWaybills);
+
+                      setEditingWaybill(null);
+                      toast({
+                        title: "Waybill Updated",
+                        description: `Waybill ${updatedWaybill.id} updated successfully.`
+                      });
+                    } catch (error) {
+                      console.error('Failed to update waybill:', error);
+                      toast({
+                        title: "Error",
+                        description: `Failed to update waybill: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                        variant: "destructive"
+                      });
+                    }
+                  }}
+                  onCancel={() => setEditingWaybill(null)}
+                />
+              )}
+            </ResponsiveFormContainer>
+
+            {/* Edit Return Waybill - Responsive Container */}
+            <ResponsiveFormContainer
+              open={!!editingReturnWaybill}
+              onOpenChange={(open) => !open && setEditingReturnWaybill(null)}
+              title="Edit Return Waybill"
+              subtitle={editingReturnWaybill ? `From ${sites.find(s => s.id === editingReturnWaybill.siteId)?.name || 'Site'}` : ''}
+              icon={<FileText className="h-5 w-5" />}
+              maxWidth="max-w-4xl"
+            >
+              {editingReturnWaybill ? (
+                <ReturnWaybillForm
+                  site={sites.find(s => s.id === editingReturnWaybill.siteId) || { id: editingReturnWaybill.siteId, name: 'Unknown Site', location: '', description: '', contactPerson: '', phone: '', status: 'active', createdAt: new Date(), updatedAt: new Date() } as Site}
+                  sites={sites}
+                  assets={assets}
+                  employees={employees}
+                  vehicles={vehicles}
+                  siteInventory={getSiteInventory(editingReturnWaybill.siteId)}
+                  waybills={waybills}
+                  initialWaybill={editingReturnWaybill}
+                  isEditMode={true}
+                  onCreateReturnWaybill={handleCreateReturnWaybill}
+                  onUpdateReturnWaybill={handleUpdateReturnWaybill}
+                  onCancel={() => setEditingReturnWaybill(null)}
+                />
+              ) : null}
+            </ResponsiveFormContainer>
 
             {/* Asset Analytics is now handled via full-page navigation in renderContent */}
 
             {/* AI Assistant Dialog */}
-            <Dialog open={showAIAssistant} onOpenChange={setShowAIAssistant}>
-              <DialogContent className="max-w-2xl h-[80vh] p-0">
-                <AIAssistantChat />
-              </DialogContent>
-            </Dialog>
+
 
             {/* Floating AI Assistant Button - Only shown when AI is enabled */}
-            {isAIEnabled && (
-              <Button
-                onClick={() => setShowAIAssistant(true)}
-                className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 z-50 bg-gradient-primary"
-                size="icon"
-              >
-                <Bot className="h-6 w-6" />
-              </Button>
-            )}
+
           </main>
         </div>
       </div>
 
       {/* Audit Report Generation Loading Dialog */}
-      {isGeneratingAudit && (
-        <Dialog open={true}>
-          <DialogContent className="max-w-md">
-            <div className="flex flex-col items-center justify-center py-8 gap-6">
-              <div className="relative">
-                <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary/20 border-t-primary"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-lg font-bold text-primary">📊</span>
+      {
+        isGeneratingAudit && (
+          <Dialog open={true}>
+            <DialogContent className="max-w-md">
+              <div className="flex flex-col items-center justify-center py-8 gap-6">
+                <div className="relative">
+                  <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary/20 border-t-primary"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-lg font-bold text-primary">📊</span>
+                  </div>
                 </div>
-              </div>
 
-              <div className="text-center space-y-2">
-                <h3 className="text-lg font-semibold">Generating Operations Audit Report</h3>
-                <p className="text-sm text-muted-foreground">
-                  Analyzing data and preparing comprehensive report...
+                <div className="text-center space-y-2">
+                  <h3 className="text-lg font-semibold">Generating Operations Audit Report</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Analyzing data and preparing comprehensive report...
+                  </p>
+                </div>
+
+                <div className="w-full space-y-3">
+                  <div className="flex items-center gap-3 text-sm">
+                    <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+                    <span className="text-muted-foreground">Collecting asset data</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+                    <span className="text-muted-foreground">Analyzing equipment performance</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+                    <span className="text-muted-foreground">Processing consumable usage</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></div>
+                    <span className="text-muted-foreground">Generating PDF document...</span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground text-center mt-4">
+                  This may take a few seconds depending on data volume.
                 </p>
               </div>
-
-              <div className="w-full space-y-3">
-                <div className="flex items-center gap-3 text-sm">
-                  <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-                  <span className="text-muted-foreground">Collecting asset data</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-                  <span className="text-muted-foreground">Analyzing equipment performance</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-                  <span className="text-muted-foreground">Processing consumable usage</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></div>
-                  <span className="text-muted-foreground">Generating PDF document...</span>
-                </div>
-              </div>
-
-              <p className="text-xs text-muted-foreground text-center mt-4">
-                This may take a few seconds depending on data volume.
-              </p>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+            </DialogContent>
+          </Dialog>
+        )
+      }
 
       {/* Audit Date Range Selection Dialog */}
       <Dialog open={showAuditDateDialog} onOpenChange={setShowAuditDateDialog}>
@@ -3875,17 +3901,19 @@ const Index = () => {
       </Dialog>
 
       {/* Hidden container for chart capture - off-screen */}
-      {isGeneratingAudit && (
-        <div className="fixed -left-[9999px] -top-[9999px]">
-          <AuditCharts
-            assets={assets}
-            equipmentLogs={equipmentLogs}
-            consumableLogs={consumableLogs}
-            startDate={new Date(auditStartDate)}
-            endDate={new Date(auditEndDate)}
-          />
-        </div>
-      )}
+      {
+        isGeneratingAudit && (
+          <div className="fixed -left-[9999px] -top-[9999px]">
+            <AuditCharts
+              assets={assets}
+              equipmentLogs={equipmentLogs}
+              consumableLogs={consumableLogs}
+              startDate={new Date(auditStartDate)}
+              endDate={new Date(auditEndDate)}
+            />
+          </div>
+        )
+      }
 
 
       {/* Report Type Selection Dialog */}
@@ -3975,15 +4003,33 @@ const Index = () => {
       </Dialog>
 
       {/* Mobile Bottom Navigation */}
-      {isMobile && (
-        <MobileBottomNav
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          onMenuClick={() => setMobileMenuOpen(true)}
-        />
-      )}
-
-    </AIAssistantProvider>
+      {
+        isMobile && (
+          <MobileBottomNav
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            onMenuClick={() => setMobileMenuOpen(true)}
+            hide={
+              !!editingAsset ||
+              !!editingWaybill ||
+              !!editingReturnWaybill ||
+              !!showReturnForm ||
+              !!processingReturnWaybill ||
+              !!showWaybillDocument ||
+              !!showReturnWaybillDocument ||
+              activeTab === 'add-asset' ||
+              activeTab === 'create-waybill' ||
+              activeTab === 'waybill-document' ||
+              activeTab === 'return-waybill-document' ||
+              activeTab === 'prepare-return-waybill' ||
+              activeTab === 'site-inventory' ||
+              activeTab === 'asset-analytics' ||
+              activeTab === 'employee-analytics'
+            }
+          />
+        )}
+      <NetworkStatus />
+    </>
   );
 };
 

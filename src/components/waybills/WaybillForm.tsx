@@ -12,24 +12,18 @@ import { FileText, Plus, Minus, X } from "lucide-react";
 import WaybillBulkInput from './WaybillBulkInput';
 import { logActivity } from "@/utils/activityLogger";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { PendingRequestSelector } from "@/components/requests/PendingRequestSelector";
+import { SiteRequest } from "@/types/request";
 
 interface WaybillFormProps {
   assets: Asset[];
   sites: Site[];
   employees: Employee[];
   vehicles: Vehicle[];
-  onCreateWaybill: (waybill: Omit<Waybill, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onCreateWaybill: (waybill: Omit<Waybill, 'id' | 'createdAt' | 'updatedAt'>, sourceRequestId?: string) => void;
   onCancel: () => void;
-  initialData?: {
-    siteId?: string;
-    siteName?: string;
-    driverId?: string;
-    driver?: string;
-    vehicleId?: string;
-    vehicle?: string;
-    purpose?: string;
-    items?: Array<{ id: string; name: string; quantity?: number }>;
-  };
+
 }
 
 interface WaybillFormData {
@@ -42,25 +36,19 @@ interface WaybillFormData {
   items: WaybillItem[];
 }
 
-export const WaybillForm = ({ assets, sites, employees, vehicles, onCreateWaybill, onCancel, initialData }: WaybillFormProps) => {
+export const WaybillForm = ({ assets, sites, employees, vehicles, onCreateWaybill, onCancel }: WaybillFormProps) => {
   const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
   const [formData, setFormData] = useState<WaybillFormData>(() => {
     const activeEmployees = employees.filter(emp => emp.status === 'active');
+    const activeVehicles = vehicles.filter(v => v.status === 'active');
 
-    // Use AI-suggested data if available
-    const siteId = initialData?.siteId || (sites.length > 0 ? String(sites[0].id) : '');
-    const driverName = initialData?.driver || (activeEmployees.length > 0 ? activeEmployees[0].name : '');
-    const vehicleName = initialData?.vehicle || (vehicles.length > 0 ? vehicles[0].name : '');
-    const purpose = initialData?.purpose || 'For Operational Purpose';
+    const siteId = sites.length > 0 ? String(sites[0].id) : '';
+    const driverName = activeEmployees.length > 0 ? activeEmployees[0].name : '';
+    const vehicleName = activeVehicles.length > 0 ? activeVehicles[0].name : '';
+    const purpose = 'Operational Activities';
 
-    // Convert AI items to waybill items
-    const items: WaybillItem[] = initialData?.items?.map(aiItem => ({
-      assetId: aiItem.id,
-      assetName: aiItem.name,
-      quantity: aiItem.quantity || 1,
-      returnedQuantity: 0,
-      status: 'outstanding' as const
-    })) || [];
+    const items: WaybillItem[] = [];
 
     return {
       siteId,
@@ -74,6 +62,7 @@ export const WaybillForm = ({ assets, sites, employees, vehicles, onCreateWaybil
   });
 
   const [bulkMode, setBulkMode] = useState(false);
+  const [sourceRequestId, setSourceRequestId] = useState<string | undefined>(undefined);
 
   const availableAssets = assets.filter(asset => {
     if (asset.siteId) return false; // Only office assets
@@ -151,7 +140,7 @@ export const WaybillForm = ({ assets, sites, employees, vehicles, onCreateWaybil
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.siteId || !formData.driverName || !formData.service || formData.items.length === 0) {
+    if (!formData.siteId || !formData.driverName || !formData.vehicle || !formData.service || formData.items.length === 0) {
       return;
     }
 
@@ -172,7 +161,7 @@ export const WaybillForm = ({ assets, sites, employees, vehicles, onCreateWaybil
       });
     }
 
-    onCreateWaybill(waybillData);
+    onCreateWaybill(waybillData, sourceRequestId);
   };
 
   const getMaxQuantity = (assetId: string) => {
@@ -180,6 +169,59 @@ export const WaybillForm = ({ assets, sites, employees, vehicles, onCreateWaybil
     const availableQty = asset?.availableQuantity || 0;
     // logger.debug('getMaxQuantity debug', { data: { assetId, availableQty, asset } }); // Removed to reduce verbosity
     return availableQty;
+  };
+
+  const handleRequestSelected = (request: SiteRequest) => {
+    setSourceRequestId(request.id);
+    // 1. Set Site if empty
+    if (!formData.siteId && request.siteId) {
+      setFormData(prev => ({ ...prev, siteId: request.siteId || '' }));
+    } else if (formData.siteId && request.siteId && formData.siteId !== request.siteId) {
+      // eslint-disable-next-line no-restricted-globals
+      if (!confirm(`This request is for a different site (${request.siteName}). Switch site to ${request.siteName}?`)) {
+        return;
+      }
+      setFormData(prev => ({ ...prev, siteId: request.siteId || '' }));
+    }
+
+    // 2. Map items
+    const mappedItems: WaybillItem[] = [];
+    const unmappedItems: string[] = [];
+
+    request.items.forEach(reqItem => {
+      // Try to match by ID first, then Name
+      let asset = assets.find(a => reqItem.assetId && a.id === reqItem.assetId);
+
+      if (!asset) {
+        asset = assets.find(a => a.name.toLowerCase() === reqItem.name.toLowerCase());
+      }
+
+      if (asset) {
+        mappedItems.push({
+          assetId: asset.id,
+          assetName: asset.name,
+          quantity: reqItem.quantity,
+          returnedQuantity: 0,
+          status: 'outstanding'
+        });
+      } else {
+        unmappedItems.push(reqItem.name);
+      }
+    });
+
+    if (unmappedItems.length > 0) {
+      toast({
+        title: "Some items need manual addition",
+        description: `Could not auto-match: ${unmappedItems.join(', ')}. Please add them manually.`,
+        variant: "default",
+      });
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      items: [...prev.items, ...mappedItems],
+      purpose: prev.purpose || `Fulfilling request from ${request.requesterName}`
+    }));
   };
 
   return (
@@ -211,7 +253,7 @@ export const WaybillForm = ({ assets, sites, employees, vehicles, onCreateWaybil
                     id="purpose"
                     value={formData.purpose}
                     onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
-                    placeholder="Describe the purpose of this waybill"
+                    placeholder="Operational Activities"
                     className="border-0 bg-muted/50 focus:bg-background transition-all duration-300"
                     required
                   />
@@ -286,25 +328,26 @@ export const WaybillForm = ({ assets, sites, employees, vehicles, onCreateWaybil
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="vehicle">Vehicle</Label>
+                  <Label htmlFor="vehicle">Vehicle *</Label>
                   <Select
                     value={formData.vehicle}
                     onValueChange={(value) => setFormData({ ...formData, vehicle: value })}
+                    required
                   >
                     <SelectTrigger className="border-0 bg-muted/50 focus:bg-background transition-all duration-300">
                       <SelectValue placeholder="Select a vehicle" />
                     </SelectTrigger>
                     <SelectContent>
-                      {vehicles.map((vehicle) => (
+                      {vehicles.filter(v => v.status === 'active').map((vehicle) => (
                         <SelectItem key={vehicle.id} value={vehicle.name}>
                           {vehicle.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {vehicles.length === 0 && (
+                  {vehicles.filter(v => v.status === 'active').length === 0 && (
                     <p className="text-sm text-muted-foreground">
-                      No vehicles available. Please add vehicles in Company Settings.
+                      No active vehicles available. Please add vehicles in Company Settings.
                     </p>
                   )}
                 </div>
@@ -324,25 +367,38 @@ export const WaybillForm = ({ assets, sites, employees, vehicles, onCreateWaybil
 
             {/* Items Section */}
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                 <h3 className="text-lg font-semibold">Items to Issue</h3>
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant={bulkMode ? 'ghost' : 'outline'} onClick={() => setBulkMode(false)}>
-                    Single Item
-                  </Button>
-                  <Button size="sm" variant={bulkMode ? 'outline' : 'ghost'} onClick={() => setBulkMode(true)}>
-                    Bulk Input
-                  </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <PendingRequestSelector onSelectRequest={handleRequestSelected} />
+                  <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+                    <Button
+                      size="sm"
+                      variant={!bulkMode ? 'default' : 'ghost'}
+                      onClick={() => setBulkMode(false)}
+                      className="h-8 text-xs"
+                    >
+                      Single Item
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={bulkMode ? 'default' : 'ghost'}
+                      onClick={() => setBulkMode(true)}
+                      className="h-8 text-xs"
+                    >
+                      Bulk Input
+                    </Button>
+                  </div>
                   {!bulkMode && (
                     <Button
                       type="button"
                       onClick={handleAddItem}
-                      variant="outline"
                       size="sm"
-                      className="gap-2"
+                      className="gap-1.5 h-8"
                     >
-                      <Plus className="h-4 w-4" />
-                      Add Item
+                      <Plus className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Add Item</span>
+                      <span className="sm:hidden">Add</span>
                     </Button>
                   )}
                 </div>
@@ -351,70 +407,88 @@ export const WaybillForm = ({ assets, sites, employees, vehicles, onCreateWaybil
               {bulkMode ? (
                 <WaybillBulkInput assets={assets} onImport={handleBulkImport} />
               ) : formData.items.length === 0 ? (
-                <Card className="border-dashed">
-                  <CardContent className="text-center py-8">
-                    <p className="text-muted-foreground">No items added yet. Click "Add Item" to start.</p>
+                <Card className="border-dashed border-2">
+                  <CardContent className="text-center py-12">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-2">
+                        <FileText className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">No items added yet</p>
+                      <p className="text-xs text-muted-foreground">Click "Add Item" to start or use "Add from Request"</p>
+                    </div>
                   </CardContent>
                 </Card>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {formData.items.map((item, index) => (
-                    <Card key={index} className="border-0 bg-muted/30">
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-4">
-                          <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                              <Label>Asset</Label>
+                    <Card key={index} className="border shadow-sm hover:shadow-md transition-shadow">
+                      <CardContent className="p-3 sm:p-4">
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <div className="flex-1 space-y-3">
+                            {/* Asset Selection */}
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-medium">Asset</Label>
                               <Select
                                 value={item.assetId || ""}
                                 onValueChange={(value) => handleItemChange(index, 'assetId', value)}
                               >
-                                <SelectTrigger className="border-0 bg-background">
+                                <SelectTrigger className="h-9 text-sm">
                                   <SelectValue placeholder="Select asset">
                                     {item.assetName || "Select asset"}
                                   </SelectValue>
                                 </SelectTrigger>
-                                <SelectContent className="bg-background z-50">
+                                <SelectContent className="z-50">
                                   {availableAssets.filter(asset => !formData.items.some((item, idx) => idx !== index && item.assetId === asset.id)).map((asset) => (
-                                    <SelectItem key={asset.id} value={asset.id}>
-                                      {asset.name} (Available: {asset.availableQuantity} {asset.unitOfMeasurement})
+                                    <SelectItem key={asset.id} value={asset.id} className="text-sm">
+                                      <div className="flex flex-col">
+                                        <span>{asset.name}</span>
+                                        <span className="text-xs text-muted-foreground">
+                                          Available: {asset.availableQuantity} {asset.unitOfMeasurement}
+                                        </span>
+                                      </div>
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
                             </div>
 
-                            <div className="space-y-2">
-                              <Label>Quantity</Label>
-                              <Input
-                                type="number"
-                                min="1"
-                                max={item.assetId ? getMaxQuantity(item.assetId) : 999999}
-                                value={item.quantity}
-                                onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value) || 0)}
-                                className="border-0 bg-background"
-                              />
-                            </div>
+                            {/* Quantity and Stock - Side by side on mobile too */}
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-medium">Quantity</Label>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max={item.assetId ? getMaxQuantity(item.assetId) : 999999}
+                                  value={item.quantity}
+                                  onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value) || 0)}
+                                  className="h-9 text-sm"
+                                />
+                              </div>
 
-                            <div className="space-y-2">
-                              <Label>Available Stock</Label>
-                              <div className="h-10 flex items-center px-3 bg-background rounded-md border">
-                                <Badge variant="outline">
-                                  {item.assetId ? `${getMaxQuantity(item.assetId)} units` : 'Select asset first'}
-                                </Badge>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-medium">Available</Label>
+                                <div className="h-9 flex items-center justify-center bg-muted rounded-md">
+                                  <Badge variant="secondary" className="text-xs font-mono">
+                                    {item.assetId ? `${getMaxQuantity(item.assetId)}` : '-'}
+                                  </Badge>
+                                </div>
                               </div>
                             </div>
                           </div>
 
-                          <Button
-                            type="button"
-                            onClick={() => handleRemoveItem(index)}
-                            variant="outline"
-                            size="sm"
-                            className="mt-6"
-                          >
-                            <Minus className="h-4 w-4" />
-                          </Button>
+                          {/* Remove Button */}
+                          <div className="flex sm:flex-col items-center justify-end sm:justify-start">
+                            <Button
+                              type="button"
+                              onClick={() => handleRemoveItem(index)}
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>

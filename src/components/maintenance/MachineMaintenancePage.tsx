@@ -62,7 +62,7 @@ export const MachineMaintenancePage = ({
 
     // Convert vehicles to machine format for unified handling
     const vehiclesAsMachines: Machine[] = useMemo(() => {
-        return vehicles.map(vehicle => ({
+        return vehicles.filter(v => v.status === 'active').map(vehicle => ({
             id: `vehicle-${vehicle.id}`,
             name: vehicle.name,
             model: vehicle.type || 'N/A',
@@ -219,12 +219,7 @@ export const MachineMaintenancePage = ({
                     <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">Machine Maintenance</h1>
                     <p className="text-sm sm:text-base text-muted-foreground">Track and manage equipment maintenance schedules</p>
                 </div>
-                {onAddMachine && (
-                    <Button onClick={onAddMachine}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Machine
-                    </Button>
-                )}
+
             </div>
 
             {/* Tabs */}

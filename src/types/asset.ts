@@ -53,6 +53,9 @@ export interface Waybill {
   createdAt: Date;
   updatedAt: Date;
   createdBy?: string;
+  signatureUrl?: string; // Frozen signature image captured at creation time
+  signatureName?: string; // Name of person who signed
+  signatureRole?: string; // Role of person who signed
 }
 
 export interface WaybillItem {
@@ -129,15 +132,6 @@ export interface CompanySettings {
     email: boolean;
     push: boolean;
   };
-  ai?: {
-    remote: {
-      enabled: boolean | string | number;
-      provider: string;
-      apiKey: string;
-      endpoint: string;
-      model: string;
-    };
-  };
   maintenanceFrequency?: number; // Global default maintenance frequency in days
   currencySymbol?: string; // e.g. ₦, $, €
   electricityRate?: number; // Electricity cost per kWh (e.g., 200 for ₦200/kWh)
@@ -161,6 +155,7 @@ export interface Vehicle {
   type?: string;
   registration_number?: string;
   status: 'active' | 'inactive';
+  delistedDate?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

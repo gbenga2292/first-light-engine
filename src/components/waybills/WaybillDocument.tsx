@@ -1,4 +1,3 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -6,6 +5,13 @@ import { Waybill, Site, CompanySettings } from "@/types/asset";
 import { generateProfessionalPDF } from "@/utils/professionalPDFGenerator";
 import { FileText, Printer, Calendar, User, Truck, MapPin, Download } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { ResponsiveFormContainer } from "@/components/ui/responsive-form-container";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Capacitor } from "@capacitor/core";
+import { handleMobilePdfAction } from "@/utils/mobilePdfUtils";
+import { useToast } from "@/hooks/use-toast";
+import { PDFPreviewDialog } from "@/components/ui/pdf-preview-dialog";
+import { useState } from "react";
 
 interface WaybillDocumentProps {
   waybill: Waybill;
@@ -16,38 +22,124 @@ interface WaybillDocumentProps {
 
 export const WaybillDocument = ({ waybill, sites, companySettings, onClose }: WaybillDocumentProps) => {
   const { hasPermission } = useAuth();
+  const isMobile = useIsMobile();
+  const { toast } = useToast();
   const documentType = waybill.type === 'return' ? 'Return Waybill' : 'Waybill';
+  const [showPreview, setShowPreview] = useState(false);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
 
   const handlePrint = async () => {
-    const { pdf } = await generateProfessionalPDF({
-      waybill,
-      companySettings,
-      sites,
-      type: waybill.type
-    });
-    const blob = pdf.output('blob');
-    const url = URL.createObjectURL(blob);
-    const printWindow = window.open(url, '_blank');
-    if (printWindow) {
-      printWindow.onload = () => {
-        printWindow.print();
-        printWindow.onafterprint = () => {
-          printWindow.close();
+    try {
+      const { pdf } = await generateProfessionalPDF({
+        waybill,
+        companySettings,
+        sites,
+        type: waybill.type,
+        signatureUrl: waybill.signatureUrl,
+        signatureName: waybill.signatureName
+      });
+
+      // Use native mobile print on Android/iOS
+      if (Capacitor.isNativePlatform()) {
+        await handleMobilePdfAction(pdf, `Waybill_${waybill.id}`, 'print');
+        return;
+      }
+
+      // Web/Desktop/Electron print - use iframe for better compatibility
+      const blob = pdf.output('blob');
+      const url = URL.createObjectURL(blob);
+
+      // Create hidden iframe for printing
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = url;
+      document.body.appendChild(iframe);
+
+      iframe.onload = () => {
+        try {
+          iframe.contentWindow?.print();
+          // Clean up after a delay
+          setTimeout(() => {
+            document.body.removeChild(iframe);
+            URL.revokeObjectURL(url);
+          }, 1000);
+        } catch (e) {
+          console.error('Print error:', e);
+          document.body.removeChild(iframe);
           URL.revokeObjectURL(url);
-        };
+          toast({
+            title: "Print Failed",
+            description: "Could not print the PDF. Try downloading instead.",
+            variant: "destructive"
+          });
+        }
       };
+    } catch (error) {
+      console.error("Print failed:", error);
+      toast({
+        title: "Print Failed",
+        description: "Could not generate or print the PDF.",
+        variant: "destructive"
+      });
     }
   };
 
   const handleDownloadPDF = async () => {
-    const { pdf } = await generateProfessionalPDF({
-      waybill,
-      companySettings,
-      sites,
-      type: waybill.type
-    });
-    const fileName = `${documentType.replace(' ', '_').toLowerCase()}_${waybill.id}.pdf`;
-    pdf.save(fileName);
+    try {
+      const { pdf } = await generateProfessionalPDF({
+        waybill,
+        companySettings,
+        sites,
+        type: waybill.type,
+        signatureUrl: waybill.signatureUrl,
+        signatureName: waybill.signatureName
+      });
+      const fileName = `${documentType.replace(' ', '_').toLowerCase()}_${waybill.id}.pdf`;
+
+      // Use native mobile download on Android/iOS
+      if (Capacitor.isNativePlatform()) {
+        await handleMobilePdfAction(pdf, fileName, 'download');
+        return;
+      }
+
+      // Web/Desktop download
+      pdf.save(fileName);
+      toast({
+        title: "Download Started",
+        description: `Downloading ${fileName}...`
+      });
+    } catch (error) {
+      console.error("Download failed:", error);
+      toast({
+        title: "Download Failed",
+        description: "Could not generate or download the PDF.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handlePreview = async () => {
+    try {
+      const { pdf } = await generateProfessionalPDF({
+        waybill,
+        companySettings,
+        sites,
+        type: waybill.type,
+        signatureUrl: waybill.signatureUrl,
+        signatureName: waybill.signatureName
+      });
+
+      const blob = pdf.output('blob');
+      setPdfBlob(blob);
+      setShowPreview(true);
+    } catch (error) {
+      console.error("Preview failed:", error);
+      toast({
+        title: "Preview Failed",
+        description: "Could not generate the PDF preview.",
+        variant: "destructive"
+      });
+    }
   };
 
   const getStatusBadge = (status: Waybill['status']) => {
@@ -63,37 +155,60 @@ export const WaybillDocument = ({ waybill, sites, companySettings, onClose }: Wa
     }
   };
 
+  const siteName = sites.find(site => site.id === waybill.siteId)?.name || 'Unknown Site';
+
   return (
-    <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto border-0 shadow-strong">
-        <DialogHeader className="pb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-primary rounded-full flex items-center justify-center">
-                <FileText className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <DialogTitle className="text-2xl">Waybill {waybill.id}</DialogTitle>
-                <div className="flex items-center gap-2 mt-1">
-                  {getStatusBadge(waybill.status)}
-                  <span className="text-sm text-muted-foreground">
-                    Created: {new Date(waybill.createdAt).toLocaleDateString('en-GB')}
-                  </span>
-                  {waybill.siteId && (
-                    <div className="flex items-center gap-1 ml-4">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground font-medium">
-                        {sites.find(site => site.id === waybill.siteId)?.name || 'Unknown Site'}
-                      </span>
-                    </div>
-                  )}
+    <>
+      <ResponsiveFormContainer
+        open={true}
+        onOpenChange={onClose}
+        title={`Waybill ${waybill.id}`}
+        subtitle={waybill.siteId ? siteName : undefined}
+        icon={<FileText className="h-5 w-5" />}
+        maxWidth="max-w-6xl"
+      >
+        {/* Mobile Action Buttons */}
+        {isMobile && (
+          <div className="flex gap-2 mb-4">
+            <Button
+              onClick={handlePreview}
+              variant="outline"
+              className="flex-1 gap-2"
+              disabled={waybill.status === 'outstanding' || !hasPermission('print_documents')}
+            >
+              <Printer className="h-4 w-4" />
+              Preview
+            </Button>
+            <Button
+              onClick={handleDownloadPDF}
+              className="flex-1 gap-2 bg-gradient-primary"
+              disabled={waybill.status === 'outstanding' || !hasPermission('print_documents')}
+            >
+              <Download className="h-4 w-4" />
+              PDF
+            </Button>
+          </div>
+        )}
+
+        {/* Desktop Header with Actions */}
+        {!isMobile && (
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              {getStatusBadge(waybill.status)}
+              <span className="text-sm text-muted-foreground">
+                Created: {new Date(waybill.createdAt).toLocaleDateString('en-GB')}
+              </span>
+              {waybill.siteId && (
+                <div className="flex items-center gap-1 ml-4">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground font-medium">{siteName}</span>
                 </div>
-              </div>
+              )}
             </div>
             <div className="flex gap-2">
-              <Button onClick={handlePrint} variant="outline" className="gap-2" disabled={waybill.status === 'outstanding' || !hasPermission('print_documents')}>
+              <Button onClick={handlePreview} variant="outline" className="gap-2" disabled={waybill.status === 'outstanding' || !hasPermission('print_documents')}>
                 <Printer className="h-4 w-4" />
-                Print
+                Preview & Print
               </Button>
               <Button onClick={handleDownloadPDF} className="gap-2 bg-gradient-primary" disabled={waybill.status === 'outstanding' || !hasPermission('print_documents')}>
                 <Download className="h-4 w-4" />
@@ -101,7 +216,17 @@ export const WaybillDocument = ({ waybill, sites, companySettings, onClose }: Wa
               </Button>
             </div>
           </div>
-        </DialogHeader>
+        )}
+
+        {/* Mobile Status Badge */}
+        {isMobile && (
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            {getStatusBadge(waybill.status)}
+            <span className="text-sm text-muted-foreground">
+              Created: {new Date(waybill.createdAt).toLocaleDateString('en-GB')}
+            </span>
+          </div>
+        )}
 
         <div className="space-y-6 print:space-y-4">
           {/* Header Information */}
@@ -218,12 +343,25 @@ export const WaybillDocument = ({ waybill, sites, companySettings, onClose }: Wa
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 pt-6 print:hidden">
-          <Button variant="outline" onClick={onClose}>
-            Close
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        {/* Desktop Close Button */}
+        {!isMobile && (
+          <div className="flex justify-end gap-3 pt-6 print:hidden">
+            <Button variant="outline" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        )}
+      </ResponsiveFormContainer>
+
+      <PDFPreviewDialog
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        pdfBlob={pdfBlob}
+        title={`${documentType} ${waybill.id} - Preview`}
+        fileName={`${documentType.replace(' ', '_').toLowerCase()}_${waybill.id}.pdf`}
+        onPrint={handlePrint}
+        onDownload={handleDownloadPDF}
+      />
+    </>
   );
 };

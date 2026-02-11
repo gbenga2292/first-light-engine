@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +12,7 @@ import { EquipmentLog } from "@/types/equipment";
 import { SiteInventoryItem } from "@/types/inventory";
 import { MapPin, Plus, Edit, Trash2, MoreVertical, FileText, Package, Activity, Eye, ChevronDown } from "lucide-react";
 import { WaybillDocument } from "../waybills/WaybillDocument";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MobileActionMenu, ActionMenuItem } from "@/components/ui/mobile-action-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,10 @@ interface SitesPageProps {
     vehicle: string;
     purpose: string;
     expectedReturnDate?: Date;
+    service?: string;
+    signatureUrl?: string | null;
+    signatureName?: string;
+    signatureRole?: string;
   }) => void;
   onProcessReturn: (returnData: any) => void;
   onAddEquipmentLog: (log: EquipmentLog) => void;
@@ -57,7 +62,10 @@ interface SitesPageProps {
   onAddConsumableLog: (log: ConsumableUsageLog) => void;
   onUpdateConsumableLog: (log: ConsumableUsageLog) => void;
   onViewSiteInventory?: (site: Site) => void;
-  aiPrefillData?: any;
+  onViewAssetHistory?: (site: Site, asset: Asset) => void;
+  onViewAssetDetails?: (site: Site, asset: Asset) => void;
+  onViewAssetAnalytics?: (site: Site, asset: Asset) => void;
+
 }
 
 const defaultCompanySettings: CompanySettings = {
@@ -76,7 +84,7 @@ const defaultCompanySettings: CompanySettings = {
   },
 };
 
-export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transactions, equipmentLogs, consumableLogs, siteInventory, getSiteInventory, companySettings, onAddSite, onUpdateSite, onDeleteSite, onUpdateAsset, onCreateWaybill, onCreateReturnWaybill, onProcessReturn, onAddEquipmentLog, onUpdateEquipmentLog, onAddConsumableLog, onUpdateConsumableLog, onViewSiteInventory, aiPrefillData }: SitesPageProps) => {
+export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transactions, equipmentLogs, consumableLogs, siteInventory, getSiteInventory, companySettings, onAddSite, onUpdateSite, onDeleteSite, onUpdateAsset, onCreateWaybill, onCreateReturnWaybill, onProcessReturn, onAddEquipmentLog, onUpdateEquipmentLog, onAddConsumableLog, onUpdateConsumableLog, onViewSiteInventory, onViewAssetHistory, onViewAssetDetails, onViewAssetAnalytics }: SitesPageProps) => {
   // Merge provided companySettings with defaults, only using non-empty values from database
   const effectiveCompanySettings: CompanySettings = {
     ...defaultCompanySettings,
@@ -111,6 +119,7 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
   const { isAuthenticated, hasPermission } = useAuth();
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
 
   // Load site filter from localStorage on component mount
   useEffect(() => {
@@ -126,12 +135,7 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
   }, [siteFilter]);
 
   // Auto-open form when AI provides prefill data
-  useEffect(() => {
-    if (aiPrefillData?.formType === 'site') {
-      setEditingSite(null);
-      setShowForm(true);
-    }
-  }, [aiPrefillData]);
+
 
   const handleAdd = () => {
     setEditingSite(null);
@@ -534,6 +538,9 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
                 companySettings={companySettings}
                 onAddEquipmentLog={onAddEquipmentLog}
                 onUpdateEquipmentLog={onUpdateEquipmentLog}
+                onViewAssetHistory={(asset) => onViewAssetHistory ? onViewAssetHistory(selectedSite, asset) : navigate(`/asset/${asset.id}/history`)}
+                onViewAssetDetails={(asset) => onViewAssetDetails?.(selectedSite, asset)}
+                onViewAssetAnalytics={(asset) => onViewAssetAnalytics?.(selectedSite, asset)}
               />
 
               {/* Consumables Section */}
@@ -545,6 +552,9 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
                 consumableLogs={consumableLogs}
                 onAddConsumableLog={onAddConsumableLog}
                 onUpdateConsumableLog={onUpdateConsumableLog}
+                onViewAssetHistory={(asset) => onViewAssetHistory ? onViewAssetHistory(selectedSite, asset) : navigate(`/asset/${asset.id}/history`)}
+                onViewAssetDetails={(asset) => onViewAssetDetails?.(selectedSite, asset)}
+                onViewAssetAnalytics={(asset) => onViewAssetAnalytics?.(selectedSite, asset)}
               />
 
               {/* Waybills List */}
@@ -636,16 +646,17 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
       {showReturnWaybillForm && selectedSite && (
         <Dialog open={showReturnWaybillForm} onOpenChange={setShowReturnWaybillForm}>
           <DialogContent onClose={() => setShowReturnWaybillForm(false)} className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <ReturnWaybillForm
-              site={selectedSite}
-              sites={sites}
-              assets={assets}
-              employees={employees}
-              vehicles={vehicles}
-              siteInventory={getSiteInventory(selectedSite.id)}
-              onCreateReturnWaybill={onCreateReturnWaybill}
-              onCancel={() => setShowReturnWaybillForm(false)}
-            />
+      <ReturnWaybillForm
+        site={selectedSite}
+        sites={sites}
+        assets={assets}
+        employees={employees}
+        vehicles={vehicles}
+        siteInventory={getSiteInventory(selectedSite.id)}
+        waybills={waybills}
+        onCreateReturnWaybill={onCreateReturnWaybill}
+        onCancel={() => setShowReturnWaybillForm(false)}
+      />
           </DialogContent>
         </Dialog>
       )}
@@ -677,29 +688,41 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
       {/* Report Preview Dialog */}
       {showReportPreview && selectedSiteForReport && (
         <Dialog open={showReportPreview} onOpenChange={setShowReportPreview}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{selectedSiteForReport.name} - Materials Preview</DialogTitle>
+          <DialogContent className="w-[95vw] max-w-4xl h-[90vh] max-h-[90vh] p-0 gap-0 flex flex-col">
+            <DialogHeader className="px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-4 border-b shrink-0">
+              <DialogTitle className="text-sm sm:text-base md:text-lg">{selectedSiteForReport.name} - Materials Preview</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Quantity</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {previewAssets.map((asset, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{asset.name}</TableCell>
-                      <TableCell>{asset.quantity}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <div className="flex justify-end">
-                <Button onClick={() => generateReport(previewAssets, `${selectedSiteForReport.name} Materials Report`)}>
+            <div className="flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-4">
+              <div className="space-y-3 sm:space-y-4">
+                <div className="overflow-x-auto -mx-3 sm:-mx-4 md:mx-0">
+                  <div className="inline-block min-w-full align-middle">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs sm:text-sm">Name</TableHead>
+                          <TableHead className="text-xs sm:text-sm text-right">Quantity</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {previewAssets.map((asset, index) => (
+                          <TableRow key={index}>
+                            <TableCell className="text-xs sm:text-sm">{asset.name}</TableCell>
+                            <TableCell className="text-xs sm:text-sm text-right font-medium">{asset.quantity}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-4 border-t shrink-0">
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowReportPreview(false)} className="w-full sm:w-auto">
+                  Cancel
+                </Button>
+                <Button onClick={() => generateReport(previewAssets, `${selectedSiteForReport.name} Materials Report`)} className="w-full sm:w-auto">
+                  <FileText className="h-4 w-4 mr-2" />
                   Download PDF
                 </Button>
               </div>
@@ -711,26 +734,28 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
       {/* Transactions Modal */}
       {showTransactionsModal && selectedSite && (
         <Dialog open={showTransactionsModal} onOpenChange={setShowTransactionsModal}>
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                <DialogTitle>{selectedSite.name} - Transaction History</DialogTitle>
-              </div>
-              <div className="flex items-center gap-2">
-                <Select value={transactionsView} onValueChange={(value) => setTransactionsView(value as 'table' | 'tree' | 'flow')}>
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue placeholder="View" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="table">Table View</SelectItem>
-                    <SelectItem value="tree">Tree View</SelectItem>
-                    <SelectItem value="flow">Flow View</SelectItem>
-                  </SelectContent>
-                </Select>
+          <DialogContent className="w-[95vw] max-w-6xl h-[90vh] max-h-[90vh] p-0 gap-0 flex flex-col">
+            <DialogHeader className="px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-4 border-b shrink-0">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Activity className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+                  <DialogTitle className="text-sm sm:text-base md:text-lg truncate">{selectedSite.name} - Transaction History</DialogTitle>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Select value={transactionsView} onValueChange={(value) => setTransactionsView(value as 'table' | 'tree' | 'flow')}>
+                    <SelectTrigger className="w-full sm:w-[110px] md:w-[120px] h-8 text-xs sm:text-sm">
+                      <SelectValue placeholder="View" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="table">Table View</SelectItem>
+                      <SelectItem value="tree">Tree View</SelectItem>
+                      <SelectItem value="flow">Flow View</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-4">
               {transactionsView === 'tree' ? (
                 // Tree View - Group by referenceId (waybill) or date
                 <div className="space-y-4">
@@ -922,15 +947,14 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
                   <Badge variant={site.status === "active" ? "default" : "secondary"}>
                     {site.status}
                   </Badge>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="p-1">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {hasPermission('manage_sites') && (
-                        <DropdownMenuItem onClick={() => {
+                  <MobileActionMenu
+                    title={`${site.name} Actions`}
+                    iconVariant="vertical"
+                    items={[
+                      {
+                        label: "Edit",
+                        icon: <Edit className="h-4 w-4" />,
+                        onClick: () => {
                           if (!isAuthenticated) {
                             toast({
                               title: "Login Required",
@@ -940,13 +964,18 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
                             return;
                           }
                           handleEdit(site);
-                        }}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                      )}
-                      {hasPermission('manage_sites') && (
-                        <DropdownMenuItem onClick={() => {
+                        },
+                        hidden: !hasPermission('manage_sites'),
+                      },
+                      {
+                        label: "Show Items",
+                        icon: <FileText className="h-4 w-4" />,
+                        onClick: () => handleShowItems(site),
+                      },
+                      {
+                        label: "Delete",
+                        icon: <Trash2 className="h-4 w-4" />,
+                        onClick: () => {
                           if (!isAuthenticated) {
                             toast({
                               title: "Login Required",
@@ -956,17 +985,12 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
                             return;
                           }
                           handleDelete(site);
-                        }}>
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem onClick={() => handleShowItems(site)}>
-                        <FileText className="mr-2 h-4 w-4" />
-                        Show Items
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        },
+                        variant: "destructive",
+                        hidden: !hasPermission('manage_sites'),
+                      },
+                    ]}
+                  />
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -1013,7 +1037,7 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
         onSave={handleSave}
         onCancel={() => setShowForm(false)}
         open={showForm}
-        initialData={aiPrefillData?.formType === 'site' ? aiPrefillData : undefined}
+
       />
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

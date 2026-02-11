@@ -8,6 +8,8 @@ interface PDFGenerationOptions {
   companySettings?: CompanySettings;
   sites: Site[];
   type: 'waybill' | 'return';
+  signatureUrl?: string;
+  signatureName?: string;
 }
 
 const defaultCompanySettings: CompanySettings = {
@@ -41,12 +43,15 @@ const loadImage = (src: string): Promise<HTMLImageElement> => {
   });
 };
 
-export const generateProfessionalPDF = async ({ waybill, companySettings, sites, type }: PDFGenerationOptions) => {
+export const generateProfessionalPDF = async ({ waybill, companySettings, sites, type, signatureUrl, signatureName }: PDFGenerationOptions) => {
   const pdf = new jsPDF('p', 'mm', 'a4');
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
 
   // Set Times New Roman font
+  // ... (rest of the code is unchanged until the end)
+
+
   pdf.setFont('times', 'normal');
 
   const site = sites.find(s => s.id === waybill.siteId);
@@ -234,6 +239,55 @@ export const generateProfessionalPDF = async ({ waybill, companySettings, sites,
     // Render footer on the last page
     renderFooter();
   }
+
+  // If a signature URL is provided, attempt to place it
+  if (signatureUrl) {
+    console.log('Rendering signature to PDF:', { signatureUrl: signatureUrl?.substring(0, 50) + '...', signatureName });
+    try {
+      const img = await loadImage(signatureUrl);
+      const sigWidth = 35; // signature width in mm
+      const sigHeight = (img.height / img.width) * sigWidth;
+
+      // Layout: [Signed label] [Signature Image] [Name text]
+      // Signed label is at x=20, y=pageHeight-30
+      const signedLabelX = 20;
+      const signedLabelY = pageHeight - 30;
+
+      // Place signature image right after "Signed" label
+      const sigX = signedLabelX + 25; // Start after "Signed" text
+      const sigY = signedLabelY - sigHeight + 3; // Align bottom with text baseline
+
+      let format: any = undefined;
+      // Simple format detection
+      if (signatureUrl.startsWith('data:image/png')) format = 'PNG';
+      else if (signatureUrl.startsWith('data:image/jpeg') || signatureUrl.startsWith('data:image/jpg')) format = 'JPEG';
+
+      if (format) {
+        pdf.addImage(signatureUrl, format, sigX, sigY, sigWidth, sigHeight);
+      } else {
+        pdf.addImage(signatureUrl, 'PNG', sigX, sigY, sigWidth, sigHeight);
+      }
+
+      // Add name text beside the signature
+      if (signatureName) {
+        const textX = sigX + sigWidth + 5; // 5mm gap after signature
+        const textY = signedLabelY - 3; // Align with signature middle
+
+        pdf.setFontSize(9);
+        pdf.setFont('times', 'bold');
+        pdf.text(signatureName, textX, textY);
+      }
+
+      console.log('Signature added to PDF successfully');
+    } catch (e) {
+      console.error('Could not add signature to PDF', e);
+      logger.warn('Could not add signature to PDF', e);
+    }
+  } else {
+    console.log('No signature URL provided to PDF generator');
+  }
+
+
 
   // Return the PDF instance for external handling (save/print)
   const fileName = `${type === 'return' ? 'Return' : 'Waybill'}_for_${waybill.service}_${toLocation.replace(/\s+/g, '_')}.pdf`;

@@ -227,9 +227,11 @@ export function transformWaybillFromDB(dbWaybill: any): any {
     updatedAt: new Date(dbWaybill.updated_at || dbWaybill.updatedAt),
     items: typeof dbWaybill.items === 'string' ? JSON.parse(dbWaybill.items) : dbWaybill.items || [],
     driverName: dbWaybill.driver_name || dbWaybill.driverName,
-    siteId: dbWaybill.site_id || dbWaybill.siteId,
-    returnToSiteId: dbWaybill.return_to_site_id || dbWaybill.returnToSiteId,
+    siteId: (dbWaybill.site_id || dbWaybill.siteId) ? String(dbWaybill.site_id || dbWaybill.siteId) : undefined,
+    returnToSiteId: (dbWaybill.return_to_site_id || dbWaybill.returnToSiteId) ? String(dbWaybill.return_to_site_id || dbWaybill.returnToSiteId) : undefined,
     createdBy: dbWaybill.created_by || dbWaybill.createdBy,
+    signatureUrl: dbWaybill.signature_url || dbWaybill.signatureUrl,
+    signatureName: dbWaybill.signature_name || dbWaybill.signatureName,
   };
 }
 
@@ -254,6 +256,8 @@ export function transformWaybillToDB(waybill: any): any {
     created_at: waybill.createdAt,
     updated_at: waybill.updatedAt,
     created_by: waybill.createdBy,
+    signature_url: waybill.signatureUrl,
+    signature_name: waybill.signatureName,
   };
 }
 
@@ -377,6 +381,7 @@ export function transformVehicleToDB(vehicle: any): any {
     type: vehicle.type,
     registration_number: vehicle.registrationNumber || vehicle.registration_number,
     status: vehicle.status,
+    delisted_date: vehicle.delistedDate,
   };
 }
 
@@ -388,6 +393,7 @@ export function transformVehicleFromDB(dbVehicle: any): any {
     ...dbVehicle,
     id: String(dbVehicle.id), // Convert to string for frontend consistency
     registrationNumber: dbVehicle.registration_number,
+    delistedDate: dbVehicle.delisted_date ? new Date(dbVehicle.delisted_date) : undefined,
     createdAt: dbVehicle.created_at ? new Date(dbVehicle.created_at) : new Date(),
     updatedAt: dbVehicle.updated_at ? new Date(dbVehicle.updated_at) : new Date(),
   };

@@ -15,6 +15,7 @@ import { TrendChart } from "./TrendChart";
 import { useMetricsSnapshots, getMetricsHistory } from "@/hooks/useMetricsSnapshots";
 import { format, subDays, addMonths, differenceInDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 interface DashboardProps {
   assets: Asset[];
   waybills: Waybill[];
@@ -25,6 +26,7 @@ interface DashboardProps {
   employees: Employee[];
   vehicles: Vehicle[];
   onQuickLogEquipment: (log: EquipmentLog) => void;
+  onBulkLogEquipment?: (logs: EquipmentLog[]) => Promise<void>;
   onNavigate: (tab: string, params?: {
     availability: 'out' | 'restock';
   }) => void;
@@ -39,15 +41,18 @@ export const Dashboard = ({
   employees,
   vehicles,
   onQuickLogEquipment,
+  onBulkLogEquipment,
   onNavigate
 }: DashboardProps) => {
   const [selectedEquipment, setSelectedEquipment] = useState<Asset | null>(null);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
-
   const [metricsHistory, setMetricsHistory] = useState<any[]>([]);
   const [isEquipmentLoggingExpanded, setIsEquipmentLoggingExpanded] = useState(true);
+  const {
+    hasPermission
+  } = useAuth();
   const {
     toast
   } = useToast();
@@ -55,13 +60,17 @@ export const Dashboard = ({
   const totalQuantity = assets.reduce((sum, asset) => sum + asset.quantity, 0);
   const outOfStockCount = assets.filter(asset => asset.quantity === 0).length;
   const lowStockCount = assets.filter(asset => asset.quantity > 0 && asset.quantity < 10).length;
-  const outstandingWaybills = (waybills || []).filter(w => w.status === 'outstanding').length;
+
+  // Separate waybills from returns
+  const regularWaybills = (waybills || []).filter(w => w.type !== 'return');
+  const returnWaybills = (waybills || []).filter(w => w.type === 'return');
+  const outstandingWaybills = regularWaybills.filter(w => w.status === 'outstanding').length;
   const outstandingCheckouts = (quickCheckouts || []).filter(c => c.status === 'outstanding').length;
 
-  // Total machines includes both equipment assets and vehicles (matching MachineMaintenancePage)
-  const equipmentCount = assets.filter(a => a.type === 'equipment').length;
-  const vehicleCount = vehicles?.length || 0;
-  const totalMachines = equipmentCount + vehicleCount;
+  // Total machines includes equipment that requires logging + vehicles (matching MachineMaintenancePage)
+  const equipmentCount = assets.filter(a => a.type === 'equipment' && a.requiresLogging).length;
+  const activeVehicleCount = vehicles?.filter(v => v.status === 'active').length || 0;
+  const totalMachines = equipmentCount + activeVehicleCount;
 
   // Calculate machines due based on latest maintenance logs (Sync with MachineMaintenancePage logic)
   const latestLogs = new Map<string, MaintenanceLog>();
@@ -72,29 +81,19 @@ export const Dashboard = ({
       latestLogs.set(log.machineId, log);
     }
   });
-
   const activeMachines = assets.filter(a => a.type === 'equipment' && a.status === 'active');
   let maintenanceDueCount = 0;
-
   const now = new Date();
   activeMachines.forEach(machine => {
     const log = latestLogs.get(machine.id);
     const deploymentDate = machine.deploymentDate ? new Date(machine.deploymentDate) : new Date(machine.createdAt);
     const serviceInterval = machine.serviceInterval || 2;
-
-    const expectedServiceDate = log?.nextServiceDue
-      ? new Date(log.nextServiceDue)
-      : (log
-        ? addMonths(new Date(log.dateStarted), serviceInterval)
-        : addMonths(deploymentDate, serviceInterval));
-
+    const expectedServiceDate = log?.nextServiceDue ? new Date(log.nextServiceDue) : log ? addMonths(new Date(log.dateStarted), serviceInterval) : addMonths(deploymentDate, serviceInterval);
     const daysRemaining = differenceInDays(expectedServiceDate, now);
     if (daysRemaining <= 14) {
       maintenanceDueCount++;
     }
   });
-
-
 
   // Store current metrics as snapshot
   useMetricsSnapshots({
@@ -322,8 +321,6 @@ export const Dashboard = ({
       return getTrend(this.trendData);
     }
   }], [totalAssets, totalQuantity, outstandingWaybills, outstandingCheckouts, outOfStockCount, lowStockCount, metricsHistory]);
-
-
   return <div className="space-y-4 md:space-y-8">
 
     {/* Header - Mobile Optimized */}
@@ -399,13 +396,11 @@ export const Dashboard = ({
         <CardContent className="p-3 md:p-6 pt-0">
           <div className="text-2xl md:text-3xl font-bold text-warning">{outstandingWaybills}</div>
           <div className="text-xs md:text-sm text-muted-foreground">Outstanding</div>
-          <div className="mt-3 h-2 w-full bg-secondary rounded-full overflow-hidden">
-            <div className="h-full bg-warning/50 w-3/4 rounded-full" />
-          </div>
+          
           <div className="flex items-center justify-between mt-2 pt-2 border-t">
             <p className="text-[10px] md:text-xs text-muted-foreground">Overall Waybills</p>
             <Badge variant="outline" className="text-[10px] md:text-xs">
-              {waybills.length} Total
+              {regularWaybills.length} Total
             </Badge>
           </div>
         </CardContent>
@@ -425,7 +420,7 @@ export const Dashboard = ({
         </CardHeader>
         <CardContent className="p-3 md:p-6 pt-0">
           <div className="text-2xl md:text-3xl font-bold text-blue-500">
-            {waybills.filter(w => w.type === 'return' && w.status === 'outstanding').length}
+            {returnWaybills.filter(w => w.status === 'outstanding').length}
           </div>
           <div className="text-xs md:text-sm text-muted-foreground">Pending Returns</div>
           <p className="text-[10px] md:text-xs text-muted-foreground mt-2">Items awaiting processing</p>
@@ -482,7 +477,7 @@ export const Dashboard = ({
       </Card>
 
       {/* 6. Machine Maintenance */}
-      <Card className="border-0 shadow-soft hover:shadow-lg transition-all duration-300 cursor-pointer group relative overflow-hidden active:scale-[0.98]" onClick={() => onNavigate('machine-maintenance')}>
+      <Card className={`border-0 shadow-soft transition-all duration-300 group relative overflow-hidden ${hasPermission('access_maintenance') ? 'hover:shadow-lg cursor-pointer active:scale-[0.98]' : 'opacity-60 cursor-not-allowed'}`} onClick={() => hasPermission('access_maintenance') && onNavigate('machine-maintenance')}>
         <div className="absolute top-0 right-0 p-2 md:p-4 opacity-10 group-hover:opacity-20 transition-opacity">
           <Wrench className="h-16 md:h-24 w-16 md:w-24 text-red-500" />
         </div>
@@ -513,7 +508,7 @@ export const Dashboard = ({
 
 
     {/* Notification Panel */}
-    <NotificationPanel assets={assets} sites={sites} equipmentLogs={equipmentLogs} employees={employees} onQuickLogEquipment={onQuickLogEquipment} />
+    <NotificationPanel assets={assets} sites={sites} equipmentLogs={equipmentLogs} employees={employees} onQuickLogEquipment={onQuickLogEquipment} onBulkLogEquipment={onBulkLogEquipment} />
 
     {/* Category Breakdown - Hidden on very small screens, collapsible */}
     <div className="hidden sm:grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
@@ -524,26 +519,62 @@ export const Dashboard = ({
       {renderCategoryCard("Office", officeAssets, <FileText className="h-5 w-5 text-green-500" />, "office", "1.0s")}
     </div>
 
-    {/* Equipment Requiring Logging */}
+    {/* Equipment Requiring Logging - Mobile Optimized */}
     {equipmentRequiringLogging.length > 0 && <Card className="border-0 shadow-soft">
-      <CardHeader>
+      <CardHeader className="p-3 md:p-6">
         <div className="flex items-center justify-between">
           <div className="flex flex-col">
-            <CardTitle className="flex items-center gap-2">
-              <Wrench className="h-5 w-5 text-primary" />
-              Equipment Requiring Logging
+            <CardTitle className="flex items-center gap-2 text-base md:text-xl">
+              <Wrench className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+              <span className="hidden sm:inline">Equipment Requiring Logging</span>
+              <span className="sm:hidden">Equipment Logs</span>
             </CardTitle>
-            <CardDescription>
-              {equipmentRequiringLogging.length} equipment items across sites
+            <CardDescription className="text-xs md:text-sm">
+              {equipmentRequiringLogging.length} items
             </CardDescription>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setIsEquipmentLoggingExpanded(!isEquipmentLoggingExpanded)}>
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setIsEquipmentLoggingExpanded(!isEquipmentLoggingExpanded)}>
             {isEquipmentLoggingExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </Button>
         </div>
       </CardHeader>
-      {isEquipmentLoggingExpanded && <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {isEquipmentLoggingExpanded && <CardContent className="p-3 md:p-6 pt-0">
+        {/* Mobile: Horizontal scroll */}
+        <div className="md:hidden flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-thin">
+          {equipmentRequiringLogging.map((equipment, index) => {
+            const status = getLatestStatus(equipment.id);
+            const siteName = getSiteName(equipment);
+            const site = getSiteForEquipment(equipment);
+            return <div key={equipment.id || index} className="flex-shrink-0 w-[160px] snap-start bg-muted/30 rounded-lg p-3 space-y-2">
+                <div className="flex items-start justify-between gap-1">
+                  <span className="font-medium text-sm truncate flex-1">{equipment.name}</span>
+                  <Badge variant={status.active ? "default" : "secondary"} className="text-[10px] px-1.5 py-0 h-5">
+                    {status.active ? "On" : "Off"}
+                  </Badge>
+                </div>
+                <div className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  {siteName}
+                </div>
+                {status.date && <div className="text-[10px] text-muted-foreground">
+                    {format(new Date(status.date), 'MMM dd')}
+                  </div>}
+                <Button variant="ghost" size="sm" className="w-full h-7 text-xs gap-1 bg-background/50" onClick={() => {
+                if (site) {
+                  setSelectedEquipment(equipment);
+                  setSelectedSite(site);
+                  setShowAnalytics(true);
+                }
+              }} disabled={!site}>
+                  <BarChart3 className="h-3 w-3" />
+                  Analytics
+                </Button>
+              </div>;
+          })}
+        </div>
+        
+        {/* Desktop: Grid layout */}
+        <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {equipmentRequiringLogging.map((equipment, index) => {
             const status = getLatestStatus(equipment.id);
             const siteName = getSiteName(equipment);

@@ -333,9 +333,9 @@ export const WaybillList = ({ waybills, sites, onViewWaybill, onEditWaybill, onI
           waybill={selectedWaybill}
           open={sendToSiteDialogOpen}
           onOpenChange={setSendToSiteDialogOpen}
-          onSend={(waybill, sentToSiteDate) => {
+          onSend={(waybill, sentToSiteDate, signWithSignature) => {
             if (onSentToSite) {
-              onSentToSite(waybill, sentToSiteDate);
+              onSentToSite(waybill, sentToSiteDate, !!signWithSignature);
             }
             setSelectedWaybill(null);
           }}

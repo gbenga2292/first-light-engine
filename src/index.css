@@ -196,6 +196,30 @@ body {
   overflow-x: hidden;
 }
 
+/* Custom scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.3);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.2) transparent;
+}
 
 /* Custom animations */
 @keyframes slide-up {
@@ -249,5 +273,10 @@ body {
   .mobile-touch-target {
     min-height: 44px;
     min-width: 44px;
+  }
+
+  /* Offset for mobile floating title bar */
+  .mobile-title-bar-offset {
+    padding-top: 28px;
   }
 }

@@ -10,522 +10,102 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "13.0.5"
   }
   public: {
     Tables: {
-      activities: {
-        Row: {
-          action: string
-          created_at: string | null
-          details: string | null
-          entity: string
-          entity_id: string | null
-          id: string
-          timestamp: string
-          updated_at: string | null
-          user_id: string | null
-          user_name: string
-        }
-        Insert: {
-          action: string
-          created_at?: string | null
-          details?: string | null
-          entity: string
-          entity_id?: string | null
-          id: string
-          timestamp: string
-          updated_at?: string | null
-          user_id?: string | null
-          user_name: string
-        }
-        Update: {
-          action?: string
-          created_at?: string | null
-          details?: string | null
-          entity?: string
-          entity_id?: string | null
-          id?: string
-          timestamp?: string
-          updated_at?: string | null
-          user_id?: string | null
-          user_name?: string
-        }
-        Relationships: []
-      }
       assets: {
         Row: {
-          available_quantity: number | null
-          category: string | null
-          condition: string | null
-          cost: number | null
-          created_at: string | null
-          critical_stock_level: number | null
-          damaged_count: number | null
+          category: string
+          condition: string
+          created_at: string
+          damaged: number
           description: string | null
-          electricity_consumption: number | null
-          fuel_capacity: number | null
-          fuel_consumption_rate: number | null
-          id: number
-          location: string | null
-          low_stock_level: number | null
-          missing_count: number | null
+          id: string
+          location: string
+          missing: number
           name: string
-          power_source: string | null
-          purchase_date: string | null
           quantity: number
-          requires_logging: boolean | null
-          reserved_quantity: number | null
-          service: string | null
-          site_id: number | null
-          site_quantities: string | null
-          status: string | null
-          type: string | null
-          unit_of_measurement: string
-          updated_at: string | null
-          used_count: number | null
+          reserved: number
+          updated_at: string
         }
         Insert: {
-          available_quantity?: number | null
-          category?: string | null
-          condition?: string | null
-          cost?: number | null
-          created_at?: string | null
-          critical_stock_level?: number | null
-          damaged_count?: number | null
+          category: string
+          condition?: string
+          created_at?: string
+          damaged?: number
           description?: string | null
-          electricity_consumption?: number | null
-          fuel_capacity?: number | null
-          fuel_consumption_rate?: number | null
-          id?: number
-          location?: string | null
-          low_stock_level?: number | null
-          missing_count?: number | null
-          name: string
-          power_source?: string | null
-          purchase_date?: string | null
-          quantity?: number
-          requires_logging?: boolean | null
-          reserved_quantity?: number | null
-          service?: string | null
-          site_id?: number | null
-          site_quantities?: string | null
-          status?: string | null
-          type?: string | null
-          unit_of_measurement: string
-          updated_at?: string | null
-          used_count?: number | null
-        }
-        Update: {
-          available_quantity?: number | null
-          category?: string | null
-          condition?: string | null
-          cost?: number | null
-          created_at?: string | null
-          critical_stock_level?: number | null
-          damaged_count?: number | null
-          description?: string | null
-          electricity_consumption?: number | null
-          fuel_capacity?: number | null
-          fuel_consumption_rate?: number | null
-          id?: number
-          location?: string | null
-          low_stock_level?: number | null
-          missing_count?: number | null
-          name?: string
-          power_source?: string | null
-          purchase_date?: string | null
-          quantity?: number
-          requires_logging?: boolean | null
-          reserved_quantity?: number | null
-          service?: string | null
-          site_id?: number | null
-          site_quantities?: string | null
-          status?: string | null
-          type?: string | null
-          unit_of_measurement?: string
-          updated_at?: string | null
-          used_count?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "assets_site_id_fkey"
-            columns: ["site_id"]
-            isOneToOne: false
-            referencedRelation: "sites"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      company_settings: {
-        Row: {
-          address: string
-          ai_config: string | null
-          company_name: string
-          created_at: string | null
-          currency: string | null
-          date_format: string | null
-          email: string
-          id: number
-          logo: string | null
-          notifications_email: boolean | null
-          notifications_push: boolean | null
-          phone: string
-          theme: string | null
-          updated_at: string | null
-          website: string | null
-        }
-        Insert: {
-          address: string
-          ai_config?: string | null
-          company_name: string
-          created_at?: string | null
-          currency?: string | null
-          date_format?: string | null
-          email: string
-          id?: number
-          logo?: string | null
-          notifications_email?: boolean | null
-          notifications_push?: boolean | null
-          phone: string
-          theme?: string | null
-          updated_at?: string | null
-          website?: string | null
-        }
-        Update: {
-          address?: string
-          ai_config?: string | null
-          company_name?: string
-          created_at?: string | null
-          currency?: string | null
-          date_format?: string | null
-          email?: string
-          id?: number
-          logo?: string | null
-          notifications_email?: boolean | null
-          notifications_push?: boolean | null
-          phone?: string
-          theme?: string | null
-          updated_at?: string | null
-          website?: string | null
-        }
-        Relationships: []
-      }
-      consumable_logs: {
-        Row: {
-          consumable_id: string
-          consumable_name: string
-          created_at: string | null
-          date: string
-          id: string
-          notes: string | null
-          quantity_remaining: number
-          quantity_used: number
-          site_id: number
-          unit: string
-          updated_at: string | null
-          used_by: string
-          used_for: string
-        }
-        Insert: {
-          consumable_id: string
-          consumable_name: string
-          created_at?: string | null
-          date: string
-          id: string
-          notes?: string | null
-          quantity_remaining: number
-          quantity_used: number
-          site_id: number
-          unit: string
-          updated_at?: string | null
-          used_by: string
-          used_for: string
-        }
-        Update: {
-          consumable_id?: string
-          consumable_name?: string
-          created_at?: string | null
-          date?: string
           id?: string
-          notes?: string | null
-          quantity_remaining?: number
-          quantity_used?: number
-          site_id?: number
-          unit?: string
-          updated_at?: string | null
-          used_by?: string
-          used_for?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "consumable_logs_site_id_fkey"
-            columns: ["site_id"]
-            isOneToOne: false
-            referencedRelation: "sites"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      employees: {
-        Row: {
-          created_at: string | null
-          delisted_date: string | null
-          email: string | null
-          id: number
+          location?: string
+          missing?: number
           name: string
-          phone: string | null
-          role: string
-          status: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          delisted_date?: string | null
-          email?: string | null
-          id?: number
-          name: string
-          phone?: string | null
-          role: string
-          status?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          delisted_date?: string | null
-          email?: string | null
-          id?: number
-          name?: string
-          phone?: string | null
-          role?: string
-          status?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      equipment_logs: {
-        Row: {
-          active: boolean | null
-          client_feedback: string | null
-          created_at: string | null
-          date: string
-          diesel_entered: number | null
-          downtime_entries: Json | null
-          equipment_id: number
-          equipment_name: string
-          id: number
-          issues_on_site: string | null
-          maintenance_details: string | null
-          site_id: number
-          supervisor_on_site: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          active?: boolean | null
-          client_feedback?: string | null
-          created_at?: string | null
-          date: string
-          diesel_entered?: number | null
-          downtime_entries?: Json | null
-          equipment_id: number
-          equipment_name: string
-          id?: number
-          issues_on_site?: string | null
-          maintenance_details?: string | null
-          site_id: number
-          supervisor_on_site?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          active?: boolean | null
-          client_feedback?: string | null
-          created_at?: string | null
-          date?: string
-          diesel_entered?: number | null
-          downtime_entries?: Json | null
-          equipment_id?: number
-          equipment_name?: string
-          id?: number
-          issues_on_site?: string | null
-          maintenance_details?: string | null
-          site_id?: number
-          supervisor_on_site?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "equipment_logs_equipment_id_fkey"
-            columns: ["equipment_id"]
-            isOneToOne: false
-            referencedRelation: "assets"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "equipment_logs_site_id_fkey"
-            columns: ["site_id"]
-            isOneToOne: false
-            referencedRelation: "sites"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      maintenance_logs: {
-        Row: {
-          cost: number | null
-          created_at: string | null
-          date_completed: string | null
-          date_started: string
-          downtime: number | null
-          id: number
-          location: string | null
-          machine_active_at_time: boolean | null
-          machine_id: number
-          maintenance_type: string
-          next_service_due: string | null
-          parts_replaced: string | null
-          reason: string
-          remarks: string | null
-          service_reset: boolean | null
-          technician: string
-          updated_at: string | null
-          work_done: string
-        }
-        Insert: {
-          cost?: number | null
-          created_at?: string | null
-          date_completed?: string | null
-          date_started: string
-          downtime?: number | null
-          id?: number
-          location?: string | null
-          machine_active_at_time?: boolean | null
-          machine_id: number
-          maintenance_type: string
-          next_service_due?: string | null
-          parts_replaced?: string | null
-          reason: string
-          remarks?: string | null
-          service_reset?: boolean | null
-          technician: string
-          updated_at?: string | null
-          work_done: string
-        }
-        Update: {
-          cost?: number | null
-          created_at?: string | null
-          date_completed?: string | null
-          date_started?: string
-          downtime?: number | null
-          id?: number
-          location?: string | null
-          machine_active_at_time?: boolean | null
-          machine_id?: number
-          maintenance_type?: string
-          next_service_due?: string | null
-          parts_replaced?: string | null
-          reason?: string
-          remarks?: string | null
-          service_reset?: boolean | null
-          technician?: string
-          updated_at?: string | null
-          work_done?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "maintenance_logs_machine_id_fkey"
-            columns: ["machine_id"]
-            isOneToOne: false
-            referencedRelation: "assets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      metrics_snapshots: {
-        Row: {
-          created_at: string | null
-          id: number
-          low_stock: number | null
-          out_of_stock: number | null
-          outstanding_checkouts: number | null
-          outstanding_waybills: number | null
-          snapshot_date: string
-          total_assets: number | null
-          total_quantity: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: number
-          low_stock?: number | null
-          out_of_stock?: number | null
-          outstanding_checkouts?: number | null
-          outstanding_waybills?: number | null
-          snapshot_date: string
-          total_assets?: number | null
-          total_quantity?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: number
-          low_stock?: number | null
-          out_of_stock?: number | null
-          outstanding_checkouts?: number | null
-          outstanding_waybills?: number | null
-          snapshot_date?: string
-          total_assets?: number | null
-          total_quantity?: number | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      quick_checkouts: {
-        Row: {
-          asset_id: number
-          checkout_date: string
-          created_at: string | null
-          employee_id: number | null
-          expected_return_days: number
-          id: number
-          quantity: number
-          returned_quantity: number | null
-          status: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          asset_id: number
-          checkout_date: string
-          created_at?: string | null
-          employee_id?: number | null
-          expected_return_days: number
-          id?: number
-          quantity: number
-          returned_quantity?: number | null
-          status?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          asset_id?: number
-          checkout_date?: string
-          created_at?: string | null
-          employee_id?: number | null
-          expected_return_days?: number
-          id?: number
           quantity?: number
-          returned_quantity?: number | null
-          status?: string | null
-          updated_at?: string | null
+          reserved?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          condition?: string
+          created_at?: string
+          damaged?: number
+          description?: string | null
+          id?: string
+          location?: string
+          missing?: number
+          name?: string
+          quantity?: number
+          reserved?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      checkouts: {
+        Row: {
+          asset_id: string
+          checkout_number: string
+          condition_on_return: string | null
+          created_at: string
+          employee_id: string
+          expected_return: string | null
+          id: string
+          quantity: number
+          returned_at: string | null
+          status: string
+        }
+        Insert: {
+          asset_id: string
+          checkout_number: string
+          condition_on_return?: string | null
+          created_at?: string
+          employee_id: string
+          expected_return?: string | null
+          id?: string
+          quantity: number
+          returned_at?: string | null
+          status?: string
+        }
+        Update: {
+          asset_id?: string
+          checkout_number?: string
+          condition_on_return?: string | null
+          created_at?: string
+          employee_id?: string
+          expected_return?: string | null
+          id?: string
+          quantity?: number
+          returned_at?: string | null
+          status?: string
         }
         Relationships: [
           {
-            foreignKeyName: "quick_checkouts_asset_id_fkey"
+            foreignKeyName: "checkouts_asset_id_fkey"
             columns: ["asset_id"]
             isOneToOne: false
             referencedRelation: "assets"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "quick_checkouts_employee_id_fkey"
+            foreignKeyName: "checkouts_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
@@ -533,69 +113,66 @@ export type Database = {
           },
         ]
       }
-      return_bills: {
+      employees: {
         Row: {
-          condition: string | null
-          created_at: string | null
-          id: number
-          notes: string | null
-          received_by: string
-          return_date: string
-          status: string | null
-          updated_at: string | null
-          waybill_id: string
+          contact: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          role: string
+          status: string
         }
         Insert: {
-          condition?: string | null
-          created_at?: string | null
-          id?: number
-          notes?: string | null
-          received_by: string
-          return_date: string
-          status?: string | null
-          updated_at?: string | null
-          waybill_id: string
+          contact?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          role: string
+          status?: string
         }
         Update: {
-          condition?: string | null
-          created_at?: string | null
-          id?: number
-          notes?: string | null
-          received_by?: string
-          return_date?: string
-          status?: string | null
-          updated_at?: string | null
-          waybill_id?: string
+          contact?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          role?: string
+          status?: string
         }
         Relationships: []
       }
       return_items: {
         Row: {
-          asset_id: number
-          condition: string | null
-          created_at: string | null
-          id: number
-          quantity: number
-          return_bill_id: number
-          updated_at: string | null
+          asset_id: string
+          created_at: string
+          id: string
+          quantity_damaged: number
+          quantity_expected: number
+          quantity_good: number
+          quantity_missing: number
+          return_id: string
         }
         Insert: {
-          asset_id: number
-          condition?: string | null
-          created_at?: string | null
-          id?: number
-          quantity: number
-          return_bill_id: number
-          updated_at?: string | null
+          asset_id: string
+          created_at?: string
+          id?: string
+          quantity_damaged?: number
+          quantity_expected: number
+          quantity_good?: number
+          quantity_missing?: number
+          return_id: string
         }
         Update: {
-          asset_id?: number
-          condition?: string | null
-          created_at?: string | null
-          id?: number
-          quantity?: number
-          return_bill_id?: number
-          updated_at?: string | null
+          asset_id?: string
+          created_at?: string
+          id?: string
+          quantity_damaged?: number
+          quantity_expected?: number
+          quantity_good?: number
+          quantity_missing?: number
+          return_id?: string
         }
         Relationships: [
           {
@@ -606,106 +183,100 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "return_items_return_bill_id_fkey"
-            columns: ["return_bill_id"]
+            foreignKeyName: "return_items_return_id_fkey"
+            columns: ["return_id"]
             isOneToOne: false
-            referencedRelation: "return_bills"
+            referencedRelation: "returns"
             referencedColumns: ["id"]
           },
         ]
       }
-      saved_api_keys: {
+      returns: {
         Row: {
-          api_key: string
-          created_at: string | null
-          endpoint: string | null
-          id: number
-          is_active: boolean | null
-          key_name: string
-          model: string | null
-          provider: string
-          updated_at: string | null
-        }
-        Insert: {
-          api_key: string
-          created_at?: string | null
-          endpoint?: string | null
-          id?: number
-          is_active?: boolean | null
-          key_name: string
-          model?: string | null
-          provider: string
-          updated_at?: string | null
-        }
-        Update: {
-          api_key?: string
-          created_at?: string | null
-          endpoint?: string | null
-          id?: number
-          is_active?: boolean | null
-          key_name?: string
-          model?: string | null
-          provider?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      site_transactions: {
-        Row: {
-          asset_id: number
-          asset_name: string
-          condition: string | null
           created_at: string
-          created_by: string | null
           id: string
           notes: string | null
-          quantity: number
-          reference_id: string
-          reference_type: string
-          site_id: number
-          transaction_type: string
-          type: string
+          processed_at: string | null
+          return_number: string
+          returned_by: string | null
+          site_id: string
+          status: string
+          waybill_id: string | null
         }
         Insert: {
-          asset_id: number
-          asset_name: string
-          condition?: string | null
-          created_at: string
-          created_by?: string | null
-          id: string
-          notes?: string | null
-          quantity: number
-          reference_id: string
-          reference_type: string
-          site_id: number
-          transaction_type: string
-          type: string
-        }
-        Update: {
-          asset_id?: number
-          asset_name?: string
-          condition?: string | null
           created_at?: string
-          created_by?: string | null
           id?: string
           notes?: string | null
-          quantity?: number
-          reference_id?: string
-          reference_type?: string
-          site_id?: number
-          transaction_type?: string
-          type?: string
+          processed_at?: string | null
+          return_number: string
+          returned_by?: string | null
+          site_id: string
+          status?: string
+          waybill_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          processed_at?: string | null
+          return_number?: string
+          returned_by?: string | null
+          site_id?: string
+          status?: string
+          waybill_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "site_transactions_asset_id_fkey"
+            foreignKeyName: "returns_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "returns_waybill_id_fkey"
+            columns: ["waybill_id"]
+            isOneToOne: false
+            referencedRelation: "waybills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      site_inventory: {
+        Row: {
+          asset_id: string
+          created_at: string
+          id: string
+          quantity: number
+          site_id: string
+          updated_at: string
+        }
+        Insert: {
+          asset_id: string
+          created_at?: string
+          id?: string
+          quantity?: number
+          site_id: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string
+          id?: string
+          quantity?: number
+          site_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_inventory_asset_id_fkey"
             columns: ["asset_id"]
             isOneToOne: false
             referencedRelation: "assets"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "site_transactions_site_id_fkey"
+            foreignKeyName: "site_inventory_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
@@ -715,208 +286,158 @@ export type Database = {
       }
       sites: {
         Row: {
-          client_name: string | null
-          contact_person: string | null
-          created_at: string | null
-          description: string | null
-          id: number
-          location: string
+          contact: string | null
+          created_at: string
+          id: string
+          manager: string | null
           name: string
-          phone: string | null
-          service: string | null
-          status: string | null
-          updated_at: string | null
+          project_name: string | null
+          status: string
+          updated_at: string
         }
         Insert: {
-          client_name?: string | null
-          contact_person?: string | null
-          created_at?: string | null
-          description?: string | null
-          id?: number
-          location: string
+          contact?: string | null
+          created_at?: string
+          id?: string
+          manager?: string | null
           name: string
-          phone?: string | null
-          service?: string | null
-          status?: string | null
-          updated_at?: string | null
+          project_name?: string | null
+          status?: string
+          updated_at?: string
         }
         Update: {
-          client_name?: string | null
-          contact_person?: string | null
-          created_at?: string | null
-          description?: string | null
-          id?: number
-          location?: string
+          contact?: string | null
+          created_at?: string
+          id?: string
+          manager?: string | null
           name?: string
-          phone?: string | null
-          service?: string | null
-          status?: string | null
-          updated_at?: string | null
+          project_name?: string | null
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
-      user_roles: {
+      transaction_log: {
         Row: {
-          created_at: string | null
+          asset_id: string
+          created_at: string
+          from_location: string | null
           id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: number
+          notes: string | null
+          quantity: number
+          reference_id: string | null
+          reference_type: string | null
+          to_location: string | null
+          transaction_type: string
         }
         Insert: {
-          created_at?: string | null
+          asset_id: string
+          created_at?: string
+          from_location?: string | null
           id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: number
+          notes?: string | null
+          quantity: number
+          reference_id?: string | null
+          reference_type?: string | null
+          to_location?: string | null
+          transaction_type: string
         }
         Update: {
-          created_at?: string | null
+          asset_id?: string
+          created_at?: string
+          from_location?: string | null
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: number
+          notes?: string | null
+          quantity?: number
+          reference_id?: string | null
+          reference_type?: string | null
+          to_location?: string | null
+          transaction_type?: string
         }
         Relationships: [
           {
-            foreignKeyName: "user_roles_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "transaction_log_asset_id_fkey"
+            columns: ["asset_id"]
             isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_roles_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users_public"
+            referencedRelation: "assets"
             referencedColumns: ["id"]
           },
         ]
       }
-      users: {
+      waybill_items: {
         Row: {
-          created_at: string | null
-          email: string | null
-          id: number
-          name: string
-          password_hash: string
-          role: string
-          updated_at: string | null
-          username: string
-        }
-        Insert: {
-          created_at?: string | null
-          email?: string | null
-          id?: number
-          name: string
-          password_hash: string
-          role: string
-          updated_at?: string | null
-          username: string
-        }
-        Update: {
-          created_at?: string | null
-          email?: string | null
-          id?: number
-          name?: string
-          password_hash?: string
-          role?: string
-          updated_at?: string | null
-          username?: string
-        }
-        Relationships: []
-      }
-      vehicles: {
-        Row: {
-          created_at: string | null
-          id: number
-          name: string
-          registration_number: string | null
-          status: string | null
-          type: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: number
-          name: string
-          registration_number?: string | null
-          status?: string | null
-          type?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: number
-          name?: string
-          registration_number?: string | null
-          status?: string | null
-          type?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      waybills: {
-        Row: {
-          created_at: string | null
-          created_by: string | null
-          driver_name: string | null
-          expected_return_date: string | null
+          asset_id: string
+          created_at: string
           id: string
-          issue_date: string
-          items: Json | null
-          purpose: string
-          return_to_site_id: number | null
-          sent_to_site_date: string | null
-          service: string
-          site_id: number | null
-          status: string | null
-          type: string | null
-          updated_at: string | null
-          vehicle: string | null
+          quantity: number
+          waybill_id: string
         }
         Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          driver_name?: string | null
-          expected_return_date?: string | null
-          id: string
-          issue_date: string
-          items?: Json | null
-          purpose: string
-          return_to_site_id?: number | null
-          sent_to_site_date?: string | null
-          service: string
-          site_id?: number | null
-          status?: string | null
-          type?: string | null
-          updated_at?: string | null
-          vehicle?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          driver_name?: string | null
-          expected_return_date?: string | null
+          asset_id: string
+          created_at?: string
           id?: string
-          issue_date?: string
-          items?: Json | null
-          purpose?: string
-          return_to_site_id?: number | null
-          sent_to_site_date?: string | null
-          service?: string
-          site_id?: number | null
-          status?: string | null
-          type?: string | null
-          updated_at?: string | null
-          vehicle?: string | null
+          quantity: number
+          waybill_id: string
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string
+          id?: string
+          quantity?: number
+          waybill_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "waybills_return_to_site_id_fkey"
-            columns: ["return_to_site_id"]
+            foreignKeyName: "waybill_items_asset_id_fkey"
+            columns: ["asset_id"]
             isOneToOne: false
-            referencedRelation: "sites"
+            referencedRelation: "assets"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "waybill_items_waybill_id_fkey"
+            columns: ["waybill_id"]
+            isOneToOne: false
+            referencedRelation: "waybills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      waybills: {
+        Row: {
+          created_at: string
+          driver: string | null
+          expected_return: string | null
+          id: string
+          site_id: string
+          status: string
+          updated_at: string
+          vehicle: string | null
+          waybill_number: string
+        }
+        Insert: {
+          created_at?: string
+          driver?: string | null
+          expected_return?: string | null
+          id?: string
+          site_id: string
+          status?: string
+          updated_at?: string
+          vehicle?: string | null
+          waybill_number: string
+        }
+        Update: {
+          created_at?: string
+          driver?: string | null
+          expected_return?: string | null
+          id?: string
+          site_id?: string
+          status?: string
+          updated_at?: string
+          vehicle?: string | null
+          waybill_number?: string
+        }
+        Relationships: [
           {
             foreignKeyName: "waybills_site_id_fkey"
             columns: ["site_id"]
@@ -928,53 +449,13 @@ export type Database = {
       }
     }
     Views: {
-      users_public: {
-        Row: {
-          created_at: string | null
-          email: string | null
-          id: number | null
-          name: string | null
-          role: string | null
-          updated_at: string | null
-          username: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          email?: string | null
-          id?: number | null
-          name?: string | null
-          role?: string | null
-          updated_at?: string | null
-          username?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          email?: string | null
-          id?: number | null
-          name?: string | null
-          role?: string | null
-          updated_at?: string | null
-          username?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: number
-        }
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
-      app_role:
-        | "admin"
-        | "data_entry_supervisor"
-        | "regulatory"
-        | "manager"
-        | "staff"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1101,14 +582,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      app_role: [
-        "admin",
-        "data_entry_supervisor",
-        "regulatory",
-        "manager",
-        "staff",
-      ],
-    },
+    Enums: {},
   },
 } as const

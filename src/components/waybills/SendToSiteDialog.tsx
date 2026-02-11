@@ -1,55 +1,70 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { ResponsiveFormContainer } from "@/components/ui/responsive-form-container";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { Waybill } from "@/types/asset";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Send } from "lucide-react";
 
 interface SendToSiteDialogProps {
   waybill: Waybill;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSend: (waybill: Waybill, sentToSiteDate: Date) => void;
+  onSend: (waybill: Waybill, sentToSiteDate: Date, signWithSignature?: boolean) => void;
 }
 
 export const SendToSiteDialog = ({ waybill, open, onOpenChange, onSend }: SendToSiteDialogProps) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   const handleSend = () => {
-    onSend(waybill, selectedDate);
+    onSend(waybill, selectedDate, signWithSignature);
     onOpenChange(false);
   };
 
+  const [signWithSignature, setSignWithSignature] = useState<boolean>(false);
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <CalendarIcon className="h-5 w-5" />
-            Send Waybill to Site
-          </DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="date">Select Date Sent to Site</Label>
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={(date) => date && setSelectedDate(date)}
-              className="rounded-md border"
-            />
-          </div>
+    <ResponsiveFormContainer
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Send Waybill to Site"
+      subtitle={`Waybill ${waybill.id}`}
+      icon={<Send className="h-5 w-5" />}
+      maxWidth="max-w-md"
+    >
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <Label htmlFor="date">Select Date Sent to Site</Label>
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={(date) => date && setSelectedDate(date)}
+            className="rounded-md border mx-auto"
+          />
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        
+        <div className="flex items-center gap-2">
+          <input id="sign-with" type="checkbox" checked={signWithSignature} onChange={(e) => setSignWithSignature(e.target.checked)} />
+          <label htmlFor="sign-with" className="text-sm">Sign this waybill with my uploaded signature</label>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 pt-4">
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+            className="flex-1"
+          >
             Cancel
           </Button>
-          <Button onClick={handleSend} className="bg-blue-500 hover:bg-blue-600 text-white">
-            Send
+          <Button 
+            onClick={handleSend} 
+            className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
+          >
+            <Send className="h-4 w-4 mr-2" />
+            Send to Site
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
+    </ResponsiveFormContainer>
   );
 };
