@@ -25,7 +25,7 @@ interface WaybillListProps {
   onInitiateReturn?: (waybill: Waybill) => void;
   onProcessReturn?: (returnData: any) => void;
   onDeleteWaybill?: (waybill: Waybill) => void;
-  onSentToSite?: (waybill: Waybill, sentToSiteDate: Date) => void;
+  onSentToSite?: (waybill: Waybill, sentToSiteDate: Date, signWithSignature?: boolean) => void;
   disableDelete?: boolean;
 }
 
