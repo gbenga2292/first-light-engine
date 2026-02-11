@@ -69,14 +69,18 @@ export const SecurityPanel: React.FC<SecurityPanelProps> = ({ onPasswordChange, 
     }
   };
 
-  const handle2FAToggle = async (enabled: boolean) => {
+  const handleMFAToggle = async (enabled: boolean) => {
+    if (enabled && !currentUser?.email) {
+      toast.error('Please add an email address to your profile before enabling MFA');
+      return;
+    }
     setIsSaving(true);
     try {
-      // TODO: Implement 2FA API call
+      // TODO: Implement MFA API call
       setIs2FAEnabled(enabled);
-      toast.success(`Two-Factor Authentication ${enabled ? 'enabled' : 'disabled'}`);
+      toast.success(`Multi-Factor Authentication ${enabled ? 'enabled' : 'disabled'}`);
     } catch (error) {
-      toast.error('Failed to update 2FA settings');
+      toast.error('Failed to update MFA settings');
     } finally {
       setIsSaving(false);
     }
@@ -127,16 +131,18 @@ export const SecurityPanel: React.FC<SecurityPanelProps> = ({ onPasswordChange, 
             <div className="flex items-start gap-3">
               <Smartphone className="h-5 w-5 text-indigo-600 mt-1 flex-shrink-0" />
               <div>
-                <h4 className="font-semibold">Two-Factor Authentication</h4>
+                <h4 className="font-semibold">Multi-Factor Authentication</h4>
                 <p className="text-sm text-muted-foreground">
-                  Add an extra layer of security to your account
+                  {currentUser?.email
+                    ? 'Add an extra layer of security to your account'
+                    : 'Add an email address to your profile to enable MFA'}
                 </p>
               </div>
             </div>
             <Switch
               checked={is2FAEnabled}
-              onCheckedChange={handle2FAToggle}
-              disabled={isSaving || isLoading}
+              onCheckedChange={handleMFAToggle}
+              disabled={isSaving || isLoading || !currentUser?.email}
             />
           </div>
 
