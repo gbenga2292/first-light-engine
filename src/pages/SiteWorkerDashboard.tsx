@@ -35,7 +35,8 @@ export const SiteWorkerDashboard = ({
     sites,
     equipmentLogs,
     setEquipmentLogs,
-    employees
+    employees,
+    companySettings
   } = useAppData();
 
   // Local state for data not in AppDataContext
@@ -183,6 +184,7 @@ export const SiteWorkerDashboard = ({
       onAddConsumableLog={handleAddConsumableLog}
       onUpdateConsumableLog={handleUpdateConsumableLog}
       initialTab={selectedAssetForDetails.initialTab}
+      companySettings={companySettings}
     />;
   }
 

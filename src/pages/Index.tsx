@@ -1931,7 +1931,7 @@ const Index = () => {
   function renderContent() {
     switch (activeTab) {
       case "dashboard":
-        return <Dashboard assets={assets} waybills={waybills} quickCheckouts={quickCheckouts} sites={sites} equipmentLogs={equipmentLogs} maintenanceLogs={maintenanceLogs} employees={employees} vehicles={vehicles} onQuickLogEquipment={async (log: EquipmentLog) => {
+        return <Dashboard companySettings={companySettings} assets={assets} waybills={waybills} quickCheckouts={quickCheckouts} sites={sites} equipmentLogs={equipmentLogs} maintenanceLogs={maintenanceLogs} employees={employees} vehicles={vehicles} onQuickLogEquipment={async (log: EquipmentLog) => {
           if (!isAuthenticated) {
             toast({
               title: "Authentication Required",
@@ -3203,7 +3203,7 @@ const Index = () => {
           </div>
         ) : null;
       default:
-        return <Dashboard assets={assets} waybills={waybills} quickCheckouts={quickCheckouts} sites={sites} equipmentLogs={equipmentLogs} maintenanceLogs={maintenanceLogs} employees={employees} vehicles={vehicles} onQuickLogEquipment={async (log: EquipmentLog) => {
+        return <Dashboard companySettings={companySettings} assets={assets} waybills={waybills} quickCheckouts={quickCheckouts} sites={sites} equipmentLogs={equipmentLogs} maintenanceLogs={maintenanceLogs} employees={employees} vehicles={vehicles} onQuickLogEquipment={async (log: EquipmentLog) => {
           if (!isAuthenticated) {
             toast({
               title: "Authentication Required",

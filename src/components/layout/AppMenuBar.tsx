@@ -291,10 +291,7 @@ export const AppMenuBar = ({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div className="w-[1px] h-4 bg-border/40 mx-1"></div>
 
-          {/* Custom Window Controls */}
-          <WindowControls className="h-full" />
         </div>
       </div>
 

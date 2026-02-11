@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Asset, Waybill, QuickCheckout, Activity, Site, Employee, Vehicle } from "@/types/asset";
+import { Asset, Waybill, QuickCheckout, Activity, Site, Employee, Vehicle, CompanySettings } from "@/types/asset";
 import { EquipmentLog } from "@/types/equipment";
 import { MaintenanceLog } from "@/types/maintenance";
 import { Package, FileText, ShoppingCart, AlertTriangle, TrendingDown, CheckCircle, Wrench, BarChart3, ChevronDown, ChevronUp, MapPin, User } from "lucide-react";
@@ -30,6 +30,7 @@ interface DashboardProps {
   onNavigate: (tab: string, params?: {
     availability: 'out' | 'restock';
   }) => void;
+  companySettings?: CompanySettings;
 }
 export const Dashboard = ({
   assets,
@@ -42,7 +43,8 @@ export const Dashboard = ({
   vehicles,
   onQuickLogEquipment,
   onBulkLogEquipment,
-  onNavigate
+  onNavigate,
+  companySettings
 }: DashboardProps) => {
   const [selectedEquipment, setSelectedEquipment] = useState<Asset | null>(null);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
@@ -396,7 +398,7 @@ export const Dashboard = ({
         <CardContent className="p-3 md:p-6 pt-0">
           <div className="text-2xl md:text-3xl font-bold text-warning">{outstandingWaybills}</div>
           <div className="text-xs md:text-sm text-muted-foreground">Outstanding</div>
-          
+
           <div className="flex items-center justify-between mt-2 pt-2 border-t">
             <p className="text-[10px] md:text-xs text-muted-foreground">Overall Waybills</p>
             <Badge variant="outline" className="text-[10px] md:text-xs">
@@ -546,33 +548,33 @@ export const Dashboard = ({
             const siteName = getSiteName(equipment);
             const site = getSiteForEquipment(equipment);
             return <div key={equipment.id || index} className="flex-shrink-0 w-[160px] snap-start bg-muted/30 rounded-lg p-3 space-y-2">
-                <div className="flex items-start justify-between gap-1">
-                  <span className="font-medium text-sm truncate flex-1">{equipment.name}</span>
-                  <Badge variant={status.active ? "default" : "secondary"} className="text-[10px] px-1.5 py-0 h-5">
-                    {status.active ? "On" : "Off"}
-                  </Badge>
-                </div>
-                <div className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                  <MapPin className="h-3 w-3" />
-                  {siteName}
-                </div>
-                {status.date && <div className="text-[10px] text-muted-foreground">
-                    {format(new Date(status.date), 'MMM dd')}
-                  </div>}
-                <Button variant="ghost" size="sm" className="w-full h-7 text-xs gap-1 bg-background/50" onClick={() => {
+              <div className="flex items-start justify-between gap-1">
+                <span className="font-medium text-sm truncate flex-1">{equipment.name}</span>
+                <Badge variant={status.active ? "default" : "secondary"} className="text-[10px] px-1.5 py-0 h-5">
+                  {status.active ? "On" : "Off"}
+                </Badge>
+              </div>
+              <div className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                <MapPin className="h-3 w-3" />
+                {siteName}
+              </div>
+              {status.date && <div className="text-[10px] text-muted-foreground">
+                {format(new Date(status.date), 'MMM dd')}
+              </div>}
+              <Button variant="ghost" size="sm" className="w-full h-7 text-xs gap-1 bg-background/50" onClick={() => {
                 if (site) {
                   setSelectedEquipment(equipment);
                   setSelectedSite(site);
                   setShowAnalytics(true);
                 }
               }} disabled={!site}>
-                  <BarChart3 className="h-3 w-3" />
-                  Analytics
-                </Button>
-              </div>;
+                <BarChart3 className="h-3 w-3" />
+                Analytics
+              </Button>
+            </div>;
           })}
         </div>
-        
+
         {/* Desktop: Grid layout */}
         <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {equipmentRequiringLogging.map((equipment, index) => {
@@ -628,7 +630,7 @@ export const Dashboard = ({
             Equipment Analytics - {selectedEquipment.name} at {selectedSite.name}
           </DialogTitle>
         </DialogHeader>
-        <SiteMachineAnalytics site={selectedSite} equipment={[selectedEquipment]} equipmentLogs={equipmentLogs.filter(log => log.equipmentId === selectedEquipment.id && log.siteId === selectedSite.id)} selectedEquipmentId={selectedEquipment.id} />
+        <SiteMachineAnalytics site={selectedSite} equipment={[selectedEquipment]} equipmentLogs={equipmentLogs.filter(log => log.equipmentId === selectedEquipment.id && log.siteId === selectedSite.id)} selectedEquipmentId={selectedEquipment.id} companySettings={companySettings} />
       </DialogContent>
     </Dialog>}
   </div>;
