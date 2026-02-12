@@ -312,7 +312,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateUser = async (userId: string, userData: { name?: string; username?: string; role?: UserRole; password?: string; bio?: string; status?: 'active' | 'inactive' | 'pending_invite' }): Promise<{ success: boolean; message?: string }> => {
+  const updateUser = async (userId: string, userData: { name?: string; username?: string; role?: UserRole; password?: string; bio?: string; avatar?: string; avatarColor?: string; status?: 'active' | 'inactive' | 'pending_invite' }): Promise<{ success: boolean; message?: string }> => {
     try {
       const result = await dataService.auth.updateUser(userId, userData as any);
       if (result.success) {
@@ -448,6 +448,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const result = await dataService.auth.updateUserAvatar?.(userId, avatar, avatarColor);
       if (result?.success) {
+        // Update local state if the updated user is the current user
+        if (currentUser && currentUser.id === userId) {
+          const updatedUser = {
+            ...currentUser,
+            avatar,
+            avatarColor: avatarColor || currentUser.avatarColor
+          };
+          setCurrentUser(updatedUser);
+          localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        }
+
         await logActivity({
           action: 'update',
           entity: 'user',

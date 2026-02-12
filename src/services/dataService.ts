@@ -114,6 +114,8 @@ export const authService = {
                     name: data.name,
                     email: data.email || undefined,
                     bio: data.bio || undefined,
+                    avatar: data.avatar || undefined,
+                    avatarColor: data.avatar_color || undefined,
                     status: data.status as any,
                     lastActive: data.last_active || undefined,
                     signatureUrl,
@@ -175,6 +177,8 @@ export const authService = {
                     name: userData.name,
                     email: userData.email || undefined,
                     bio: userData.bio || undefined,
+                    avatar: userData.avatar || undefined,
+                    avatarColor: userData.avatar_color || undefined,
                     status: userData.status as any,
                     lastActive: userData.last_active || undefined,
                     signatureUrl,
@@ -213,6 +217,8 @@ export const authService = {
             name: user.name,
             email: user.email || undefined,
             bio: user.bio || undefined,
+            avatar: user.avatar || undefined,
+            avatarColor: user.avatar_color || undefined,
             status: user.status as any,
             lastActive: user.last_active || undefined,
             created_at: user.created_at,
@@ -326,6 +332,8 @@ export const authService = {
         bio?: string;
         phone?: string;
         status?: string;
+        avatar?: string;
+        avatarColor?: string;
     }): Promise<{ success: boolean; message?: string }> => {
         const updateData: any = {
             updated_at: new Date().toISOString()
@@ -337,6 +345,8 @@ export const authService = {
         if (userData.email) updateData.email = userData.email;
         if (userData.bio) updateData.bio = userData.bio;
         if (userData.status) updateData.status = userData.status;
+        if (userData.avatar) updateData.avatar = userData.avatar;
+        if (userData.avatarColor) updateData.avatar_color = userData.avatarColor;
 
         if (userData.password) {
             updateData.password_hash = await bcrypt.hash(userData.password, 10);
@@ -416,7 +426,26 @@ export const authService = {
     },
 
     updateUserAvatar: async (userId: string, avatar: string, avatarColor?: string) => {
-        return { success: false, message: 'Not implemented' };
+        try {
+            const updateData: any = {
+                avatar,
+                updated_at: new Date().toISOString()
+            };
+
+            if (avatarColor) {
+                updateData.avatar_color = avatarColor;
+            }
+
+            const { error } = await supabase
+                .from('users')
+                .update(updateData)
+                .eq('id', userId);
+
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
+        }
     },
 
     updateLastActive: async (userId: string) => {
