@@ -369,6 +369,60 @@ export type Database = {
           },
         ]
       }
+      login_history: {
+        Row: {
+          created_at: string | null
+          device_info: string | null
+          failure_reason: string | null
+          id: number
+          ip_address: string | null
+          location: string | null
+          login_type: string | null
+          status: string | null
+          timestamp: string
+          user_id: number
+        }
+        Insert: {
+          created_at?: string | null
+          device_info?: string | null
+          failure_reason?: string | null
+          id?: number
+          ip_address?: string | null
+          location?: string | null
+          login_type?: string | null
+          status?: string | null
+          timestamp?: string
+          user_id: number
+        }
+        Update: {
+          created_at?: string | null
+          device_info?: string | null
+          failure_reason?: string | null
+          id?: number
+          ip_address?: string | null
+          location?: string | null
+          login_type?: string | null
+          status?: string | null
+          timestamp?: string
+          user_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "login_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "login_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       maintenance_logs: {
         Row: {
           cost: number | null
@@ -844,6 +898,7 @@ export type Database = {
           created_at: string | null
           email: string | null
           id: number
+          last_active: string | null
           mfa_enabled: boolean
           mfa_secret: string | null
           name: string
@@ -859,6 +914,7 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id?: number
+          last_active?: string | null
           mfa_enabled?: boolean
           mfa_secret?: string | null
           name: string
@@ -874,6 +930,7 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id?: number
+          last_active?: string | null
           mfa_enabled?: boolean
           mfa_secret?: string | null
           name?: string
