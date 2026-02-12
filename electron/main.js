@@ -1,284 +1,48 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import log from 'electron-log';
-
-// ============= Single Instance Lock =============
-const gotTheLock = app.requestSingleInstanceLock();
-
-if (!gotTheLock) {
-  console.log('Another instance is already running. Quitting...');
-  app.quit();
-} else {
-  app.on('second-instance', (event, commandLine, workingDirectory) => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) {
-        mainWindow.restore();
-      }
-      mainWindow.focus();
-
-      dialog.showMessageBox(mainWindow, {
-        type: 'info',
-        title: 'App Already Running',
-        message: 'The application is already running.',
-        detail: 'The existing window has been brought to focus.',
-        buttons: ['OK']
-      });
-    }
-  });
-}
-
-// Configure electron-log
-log.initialize();
-log.transports.file.level = 'info';
-log.transports.file.resolvePathFn = () => path.join(app.getPath('userData'), 'logs/main.log');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let mainWindow;
 let splashWindow;
-let llmManager;
 
-// Listen for logs from renderer
-ipcMain.on('log-message', (event, { level, message, data }) => {
-  if (log[level]) {
-    log[level](`[Renderer] ${message}`, data || '');
-  } else {
-    log.info(`[Renderer] ${message}`, data || '');
-  }
-});
-
-async function main() {
-  console.log('=== DCEL Inventory - Supabase Mode ===');
-  console.log('SQLite/NAS functionality is DISABLED. All data is stored in Supabase.');
-  console.log('========================================');
-
-  // --- Window control handlers ---
-  ipcMain.handle('window:minimize', () => {
-    if (mainWindow) mainWindow.minimize();
-  });
-
-  ipcMain.handle('window:maximize', () => {
-    if (mainWindow) {
-      if (mainWindow.isMaximized()) {
-        mainWindow.unmaximize();
-      } else {
-        mainWindow.maximize();
-      }
-    }
-  });
-
-  ipcMain.handle('window:close', () => {
-    if (mainWindow) mainWindow.close();
-  });
-
-  ipcMain.handle('window:isMaximized', () => {
-    return mainWindow ? mainWindow.isMaximized() : false;
-  });
-
-  ipcMain.handle('window:toggleDevTools', () => {
-    if (mainWindow) mainWindow.webContents.toggleDevTools();
-  });
-
-  // --- Database handlers (return not-available responses) ---
-  // These stubs prevent errors when the frontend tries to call these methods
-  ipcMain.handle('db:getDatabaseInfo', () => {
-    return {
-      storageType: 'supabase',
-      dbPath: 'Supabase Cloud',
-      masterDbPath: 'Supabase Cloud',
-      localDbPath: 'Supabase Cloud',
-      lockingEnabled: false,
-      message: 'All data is stored in Supabase. Local SQLite is disabled.'
-    };
-  });
-
-  ipcMain.handle('sync:getStatus', () => {
-    return {
-      inSync: true,
-      status: 'supabase',
-      metadata: {},
-      message: 'Using Supabase for all data storage. No local sync needed.'
-    };
-  });
-
-  ipcMain.handle('sync:manualSync', async () => {
-    return {
-      success: true,
-      message: 'Using Supabase for all data storage. No manual sync needed.'
-    };
-  });
-
-  ipcMain.handle('db:clearTable', async (event, title) => {
-    // Stub for Supabase mode - no local table to clear
-    return { success: true };
-  });
-
-  ipcMain.handle('db:getCompanySettings', async () => {
-    // Return empty settings object - actual settings are fetched from Supabase
-    return {
-      companyName: '',
-      address: '',
-      phone: '',
-      email: '',
-      logo: ''
-    };
-  });
-
-  // --- LLM Manager Integration (keep this for AI assistant) ---
-  try {
-    const { LLMManager } = await import('./llmManager.js');
-    llmManager = new LLMManager();
-
-    llmManager.start().then(result => {
-      if (result.success) {
-        console.log('✓ LLM server auto-started successfully');
-      } else {
-        console.warn('⚠ LLM server auto-start failed:', result.error);
-      }
-    }).catch(err => {
-      console.error('LLM auto-start error:', err);
-    });
-
-    // LLM IPC Handlers
-    ipcMain.handle('llm:status', async () => {
-      return llmManager.getStatus();
-    });
-
-    ipcMain.handle('llm:configure', async (event, newCfg) => {
-      if (!newCfg) return { success: false, error: 'No config provided' };
-      return llmManager.updateModelPath(newCfg);
-    });
-
-    ipcMain.handle('llm:generate', async (event, { prompt, options = {} } = {}) => {
-      if (!prompt) return { success: false, error: 'No prompt provided' };
-      return await llmManager.generate(prompt, options);
-    });
-
-    ipcMain.handle('llm:start', async () => {
-      return await llmManager.start();
-    });
-
-    ipcMain.handle('llm:stop', async () => {
-      return llmManager.stop();
-    });
-
-    ipcMain.handle('llm:restart', async () => {
-      return await llmManager.restart();
-    });
-
-    // Stub handlers for keytar-related operations (no-op since we use Supabase)
-    ipcMain.handle('llm:migrate-keys', async () => {
-      return { success: true, message: 'No migration needed - using Supabase.' };
-    });
-
-    ipcMain.handle('llm:get-key-status', async () => {
-      return { success: true, inDB: false, inSecureStore: false };
-    });
-
-    ipcMain.handle('llm:clear-key', async () => {
-      return { success: true };
-    });
-  } catch (err) {
-    console.warn('LLM Manager not available:', err.message);
-  }
-
-  // --- Backup handlers (return stubs - backup is handled by Supabase) ---
-  ipcMain.handle('backup:getStatus', () => {
-    return {
-      enabled: false,
-      message: 'Backup is handled by Supabase. Local backup is disabled.'
-    };
-  });
-
-  // Modified to support both legacy and external saves
-  ipcMain.handle('backup:triggerManual', async () => {
-    // For Supabase mode, this might fail if it tries to use local DB
-    // But we keep it for backward compat or if scheduler is updated
-    try {
-      const { backupScheduler } = await import('./backupScheduler.js');
-      return await backupScheduler.triggerManualBackup();
-    } catch (e) {
-      return { success: false, message: e.message };
-    }
-  });
-
-  ipcMain.handle('backup:save', async (event, data) => {
-    try {
-      const { backupScheduler } = await import('./backupScheduler.js');
-      return await backupScheduler.saveExternalBackup(data);
-    } catch (e) {
-      console.error('Backup save failed:', e);
-      return { success: false, errors: [e.message] };
-    }
-  });
-
-  ipcMain.handle('backup:setEnabled', () => {
-    return { success: true, message: 'Backup is handled by Supabase.' };
-  });
-
-  ipcMain.handle('backup:setRetention', () => {
-    return { success: true };
-  });
-
-  ipcMain.handle('backup:listBackups', () => {
-    return [];
-  });
-
-  ipcMain.handle('backup:checkNAS', async () => {
-    return { accessible: false, message: 'NAS backup is disabled. Using Supabase.' };
-  });
-
-  ipcMain.handle('backup:readBackupFile', async () => {
-    return null;
-  });
-
-  ipcMain.handle('backup:setNASPath', () => {
-    return { success: true };
-  });
-
-  console.log('IPC handlers registered.');
-
-  // Create the browser window
-  createWindow();
-}
-
-function createSplashWindow() {
+function createWindow() {
+  // Create splash window
   splashWindow = new BrowserWindow({
-    width: 500,
+    width: 600,
     height: 400,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
-    resizable: false,
-    center: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true
     },
+    // Icon path depends on environment
     icon: process.env.NODE_ENV === 'development'
       ? path.join(__dirname, '../public/favicon.ico')
       : path.join(__dirname, '../dist/favicon.ico')
   });
 
-  if (process.env.NODE_ENV === 'development') {
-    splashWindow.loadFile(path.join(__dirname, '../public/splash.html'));
-  } else {
-    splashWindow.loadFile(path.join(__dirname, '../dist/splash.html'));
-  }
-}
+  // Load splash screen
+  const splashPath = process.env.NODE_ENV === 'development'
+    ? path.join(__dirname, '../public/splash.html')
+    : path.join(__dirname, '../dist/splash.html');
 
-function createWindow() {
+  splashWindow.loadFile(splashPath);
+
+  // Create main window (hidden initially)
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
-    show: false,
-    titleBarStyle: 'hidden',
+    show: false, // Don't show until ready
+    titleBarStyle: 'hidden', // Hide native title bar but keep window controls functionality
     titleBarOverlay: {
-      color: '#00000000',
-      symbolColor: '#74b1be',
-      height: 48
+      color: '#00000000', // Fully transparent
+      symbolColor: '#ffffff',
+      height: 0 // Minimize the overlay height
     },
     webPreferences: {
       nodeIntegration: false,
@@ -291,54 +55,121 @@ function createWindow() {
       : path.join(__dirname, '../dist/favicon.ico')
   });
 
-  mainWindow.setMenu(null);
+  // Remove default menu
+  mainWindow.setMenuBarVisibility(false);
+  Menu.setApplicationMenu(null);
 
+  // Load application
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL('http://localhost:8080');
+    // mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
+  // When main window is ready to show, close splash and show main window
   mainWindow.once('ready-to-show', () => {
-    setTimeout(() => {
-      if (splashWindow && !splashWindow.isDestroyed()) {
-        splashWindow.close();
-      }
-      mainWindow.show();
-    }, 1000);
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.destroy();
+    }
+    mainWindow.show();
+  });
+
+  // Open external links in default browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https:') || url.startsWith('http:')) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
   });
 }
 
-app.whenReady().then(() => {
-  createSplashWindow();
-  main();
-});
+// Deep Linking Setup
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('dcel-inventory', process.execPath, [path.resolve(process.argv[1])]);
+  }
+} else {
+  app.setAsDefaultProtocolClient('dcel-inventory');
+}
 
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, we should focus our window.
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+
+      // On Windows, the deep link is in the commandLine array
+      const deepLink = commandLine.find((arg) => arg.startsWith('dcel-inventory://'));
+      if (deepLink) {
+        mainWindow.webContents.send('deep-link', deepLink);
+      }
+    }
+  });
+
+  app.whenReady().then(() => {
+    createWindow();
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
+      }
+    });
+
+    // Handle deep link on startup (Windows)
+    const deepLink = process.argv.find((arg) => arg.startsWith('dcel-inventory://'));
+    if (deepLink && mainWindow) {
+      // Small delay to ensure React handles it? Or just send it.
+      // Note: Creating window is async-ish, but variable isn't assigned until constructed.
+      // However, we can't send until window "ready-to-show"? 
+      // We'll rely on the existing 'ready-to-show' OR we can send it once 'did-finish-load'.
+      mainWindow.webContents.on('did-finish-load', () => {
+        mainWindow.webContents.send('deep-link', deepLink);
+      });
+    }
+  });
+
+  // Handle deep link (macOS)
+  app.on('open-url', (event, url) => {
+    event.preventDefault();
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+      mainWindow.webContents.send('deep-link', url);
+    }
+  });
+}
+
+// Global window-all-closed handler (moved to inside ready block or kept global? commonly global)
+// We need to keep it global but outside the lock check?
+// Actually if we don't get lock, we quit, so this is fine.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
+// IPC handler for simple window controls
+ipcMain.handle('window:minimize', () => mainWindow?.minimize());
+ipcMain.handle('window:maximize', () => {
+  if (mainWindow?.isMaximized()) {
+    mainWindow.unmaximize();
+    return false;
+  } else {
+    mainWindow?.maximize();
+    return true;
   }
 });
-
-app.on('before-quit', () => {
-  console.log('Starting shutdown process...');
-
-  try {
-    if (typeof llmManager !== 'undefined' && llmManager) {
-      llmManager.stop();
-      console.log('✓ LLM server stopped');
-    }
-  } catch (err) {
-    console.error('Error stopping LLM server:', err);
+ipcMain.handle('window:close', () => mainWindow?.close());
+ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized());
+ipcMain.handle('window:toggleDevTools', () => mainWindow?.webContents.toggleDevTools());
+ipcMain.handle('window:update-title-bar-overlay', (event, options) => {
+  if (mainWindow) {
+    mainWindow.setTitleBarOverlay(options);
   }
-});
-
-app.on('will-quit', () => {
-  console.log('App is quitting...');
 });

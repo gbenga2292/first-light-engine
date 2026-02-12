@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,25 +14,14 @@ interface PersonalInfoCardProps {
 }
 
 export const PersonalInfoCard: React.FC<PersonalInfoCardProps> = ({ onSave, isLoading = false }) => {
-  const { currentUser, updateUser, refreshCurrentUser } = useAuth();
+  const { currentUser, updateUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: currentUser?.name || '',
     email: currentUser?.email || '',
-    bio: currentUser?.email || '',
+    bio: currentUser?.email || '', // Using email as bio placeholder
   });
-
-  // Sync form data when currentUser changes (e.g. after login or refresh)
-  useEffect(() => {
-    if (currentUser) {
-      setFormData({
-        name: currentUser.name || '',
-        email: currentUser.email || '',
-        bio: currentUser.email || '',
-      });
-    }
-  }, [currentUser]);
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
@@ -49,7 +38,6 @@ export const PersonalInfoCard: React.FC<PersonalInfoCardProps> = ({ onSave, isLo
           name: formData.name,
           email: formData.email,
         });
-        await refreshCurrentUser();
       }
       toast.success('Profile updated successfully');
       setIsEditing(false);
