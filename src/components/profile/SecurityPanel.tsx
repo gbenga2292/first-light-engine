@@ -101,7 +101,7 @@ export const SecurityPanel: React.FC<SecurityPanelProps> = ({ onPasswordChange, 
         <CardContent className="relative z-10 space-y-6">
           {/* Password Section */}
           <div className="space-y-4 pb-6 border-b border-border/50">
-            <div className="flex items-start justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-start gap-3">
                 <Lock className="h-5 w-5 text-red-600 mt-1 flex-shrink-0" />
                 <div>
@@ -115,6 +115,7 @@ export const SecurityPanel: React.FC<SecurityPanelProps> = ({ onPasswordChange, 
                 onClick={() => setIsPasswordDialogOpen(true)}
                 variant="outline"
                 size="sm"
+                className="w-full sm:w-auto"
                 disabled={isSaving || isLoading}
               >
                 Change
@@ -123,12 +124,12 @@ export const SecurityPanel: React.FC<SecurityPanelProps> = ({ onPasswordChange, 
           </div>
 
           {/* MFA Section */}
-          <div className="flex items-center justify-between p-4 bg-indigo-500/5 rounded-lg border border-indigo-200/30 dark:border-indigo-800/30">
-            <div className="flex items-start gap-3">
+          <div className="flex items-center justify-between p-4 bg-indigo-500/5 rounded-lg border border-indigo-200/30 dark:border-indigo-800/30 gap-4">
+            <div className="flex items-start gap-3 flex-1">
               <Smartphone className="h-5 w-5 text-indigo-600 mt-1 flex-shrink-0" />
               <div>
                 <h4 className="font-semibold">Multi-Factor Authentication</h4>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground mr-2">
                   Add an extra layer of security to your account
                 </p>
               </div>

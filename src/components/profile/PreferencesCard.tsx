@@ -26,7 +26,7 @@ export const PreferencesCard: React.FC<PreferencesCardProps> = ({ isLoading = fa
   const handleThemeChange = (value: string) => {
     setThemeState(value as 'light' | 'dark' | 'system');
     localStorage.setItem('theme', value);
-    
+
     // Apply theme to document
     const htmlElement = document.documentElement;
     if (value === 'dark') {
@@ -41,7 +41,7 @@ export const PreferencesCard: React.FC<PreferencesCardProps> = ({ isLoading = fa
         htmlElement.classList.remove('dark');
       }
     }
-    
+
     toast.success(`Theme changed to ${value}`);
   };
 
@@ -82,7 +82,7 @@ export const PreferencesCard: React.FC<PreferencesCardProps> = ({ isLoading = fa
           <div>
             <h4 className="font-semibold mb-3">Appearance</h4>
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-background/40 rounded-lg border border-border/50">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-background/40 rounded-lg border border-border/50 gap-4">
                 <div className="flex items-center gap-3">
                   {getThemeIcon()}
                   <div>
@@ -93,7 +93,7 @@ export const PreferencesCard: React.FC<PreferencesCardProps> = ({ isLoading = fa
                   </div>
                 </div>
                 <Select value={theme} onValueChange={handleThemeChange} disabled={isLoading}>
-                  <SelectTrigger className="w-[120px]">
+                  <SelectTrigger className="w-full sm:w-[150px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -125,13 +125,13 @@ export const PreferencesCard: React.FC<PreferencesCardProps> = ({ isLoading = fa
         {/* Notifications Section */}
         <div className="space-y-4">
           <h4 className="font-semibold">Notifications</h4>
-          
-          <div className="flex items-center justify-between p-3 bg-background/40 rounded-lg border border-border/50">
-            <div className="flex items-center gap-3">
+
+          <div className="flex items-center justify-between p-3 bg-background/40 rounded-lg border border-border/50 gap-4">
+            <div className="flex items-center gap-3 flex-1">
               <Mail className="h-5 w-5 text-green-600 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium">Email Notifications</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground mr-2">
                   Receive important updates via email
                 </p>
               </div>
@@ -143,12 +143,12 @@ export const PreferencesCard: React.FC<PreferencesCardProps> = ({ isLoading = fa
             />
           </div>
 
-          <div className="flex items-center justify-between p-3 bg-background/40 rounded-lg border border-border/50">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between p-3 bg-background/40 rounded-lg border border-border/50 gap-4">
+            <div className="flex items-center gap-3 flex-1">
               <Bell className="h-5 w-5 text-green-600 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium">In-App Notifications</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground mr-2">
                   Show alerts within the application
                 </p>
               </div>
@@ -160,12 +160,12 @@ export const PreferencesCard: React.FC<PreferencesCardProps> = ({ isLoading = fa
             />
           </div>
 
-          <div className="flex items-center justify-between p-3 bg-background/40 rounded-lg border border-border/50">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between p-3 bg-background/40 rounded-lg border border-border/50 gap-4">
+            <div className="flex items-center gap-3 flex-1">
               <Bell className="h-5 w-5 text-green-600 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium">Low Stock Alerts</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground mr-2">
                   Notify when inventory is running low
                 </p>
               </div>
@@ -177,12 +177,12 @@ export const PreferencesCard: React.FC<PreferencesCardProps> = ({ isLoading = fa
             />
           </div>
 
-          <div className="flex items-center justify-between p-3 bg-background/40 rounded-lg border border-border/50">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between p-3 bg-background/40 rounded-lg border border-border/50 gap-4">
+            <div className="flex items-center gap-3 flex-1">
               <Bell className="h-5 w-5 text-green-600 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium">Waybill Status Updates</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground mr-2">
                   Get notified about waybill changes
                 </p>
               </div>
@@ -194,12 +194,12 @@ export const PreferencesCard: React.FC<PreferencesCardProps> = ({ isLoading = fa
             />
           </div>
 
-          <div className="flex items-center justify-between p-3 bg-background/40 rounded-lg border border-border/50">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between p-3 bg-background/40 rounded-lg border border-border/50 gap-4">
+            <div className="flex items-center gap-3 flex-1">
               <Mail className="h-5 w-5 text-green-600 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium">Weekly Report</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground mr-2">
                   Receive weekly inventory reports
                 </p>
               </div>
@@ -212,8 +212,8 @@ export const PreferencesCard: React.FC<PreferencesCardProps> = ({ isLoading = fa
           </div>
         </div>
 
-        <Button 
-          className="w-full bg-green-600 hover:bg-green-700" 
+        <Button
+          className="w-full bg-green-600 hover:bg-green-700"
           disabled={isLoading}
           onClick={() => {
             try {

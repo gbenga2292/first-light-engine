@@ -316,6 +316,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const result = await dataService.auth.updateUser(userId, userData as any);
       if (result.success) {
+        if (currentUser && currentUser.id === userId) {
+          const updatedUser = { ...currentUser, ...userData };
+          setCurrentUser(updatedUser as User);
+          localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        }
+
         await logActivity({
           action: 'update',
           entity: 'user',

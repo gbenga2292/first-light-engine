@@ -91,6 +91,11 @@ export const authService = {
                     return { success: false, message: 'Invalid credentials' };
                 }
 
+                // Check for blocked status
+                if (data.status === 'inactive') {
+                    return { success: false, message: 'Access blocked' };
+                }
+
                 // Fetch signature
                 let signatureUrl: string | undefined;
                 try {
@@ -109,6 +114,7 @@ export const authService = {
                     name: data.name,
                     email: data.email || undefined,
                     bio: data.bio || undefined,
+                    status: data.status as any,
                     lastActive: data.last_active || undefined,
                     signatureUrl,
                     created_at: data.created_at,
@@ -169,6 +175,7 @@ export const authService = {
                     name: userData.name,
                     email: userData.email || undefined,
                     bio: userData.bio || undefined,
+                    status: userData.status as any,
                     lastActive: userData.last_active || undefined,
                     signatureUrl,
                     created_at: userData.created_at,
@@ -206,6 +213,7 @@ export const authService = {
             name: user.name,
             email: user.email || undefined,
             bio: user.bio || undefined,
+            status: user.status as any,
             lastActive: user.last_active || undefined,
             created_at: user.created_at,
             updated_at: user.updated_at
@@ -317,6 +325,7 @@ export const authService = {
         name?: string; username?: string; role?: UserRole; password?: string; email?: string;
         bio?: string;
         phone?: string;
+        status?: string;
     }): Promise<{ success: boolean; message?: string }> => {
         const updateData: any = {
             updated_at: new Date().toISOString()
@@ -327,6 +336,7 @@ export const authService = {
         if (userData.name) updateData.name = userData.name;
         if (userData.email) updateData.email = userData.email;
         if (userData.bio) updateData.bio = userData.bio;
+        if (userData.status) updateData.status = userData.status;
 
         if (userData.password) {
             updateData.password_hash = await bcrypt.hash(userData.password, 10);
