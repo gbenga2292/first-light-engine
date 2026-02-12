@@ -178,12 +178,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshCurrentUser = async () => {
     if (!currentUser?.id) return;
 
+    // Skip refresh for dev mode hardcoded admin
+    if (import.meta.env.DEV && currentUser.id === 'admin') {
+      return;
+    }
+
     try {
       // Fetch fresh user data from database
       const users = await dataService.auth.getUsers();
       const updatedUser = users.find(u => u.id === currentUser.id);
 
       if (updatedUser) {
+        // Check if account has been deactivated
+        if (updatedUser.status === 'inactive') {
+          logger.warn('Account has been deactivated by admin');
+          logout();
+          return;
+        }
+
         // Fetch signature separately
         try {
           const sigResult = await (dataService.auth as any).getSignature?.(updatedUser.id);
@@ -196,6 +208,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         setCurrentUser(updatedUser);
         localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+      } else {
+        // User no longer exists in database
+        logger.warn('User account not found in database');
+        logout();
       }
     } catch (error) {
       logger.error('Refresh current user error', error);
@@ -204,6 +220,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Auto-logout after 24 hours of inactivity
   useSessionTimeout(logout, isAuthenticated);
+
+  // Periodic account status check (every 30 seconds)
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser?.id) return;
+
+    // Skip status check for dev mode hardcoded admin
+    if (import.meta.env.DEV && currentUser.id === 'admin') {
+      return;
+    }
+
+    const checkAccountStatus = async () => {
+      try {
+        const users = await dataService.auth.getUsers();
+        const user = users.find(u => u.id === currentUser.id);
+
+        if (!user) {
+          // Account deleted
+          logger.warn('Account has been deleted');
+          logout();
+        } else if (user.status === 'inactive') {
+          // Account deactivated
+          logger.warn('Account has been deactivated');
+          logout();
+        }
+      } catch (error) {
+        logger.error('Account status check error', error);
+      }
+    };
+
+    // Check immediately on mount
+    checkAccountStatus();
+
+    // Then check every 30 seconds
+    const interval = setInterval(checkAccountStatus, 30000);
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated, currentUser?.id, logout]);
 
   // Permission logic remains the same, as it's based on the role in currentUser state
   const hasPermission = (permission: string): boolean => {

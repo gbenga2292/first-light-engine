@@ -12,7 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Activity, Employee } from '@/types/asset';
-import { 
+import {
   Users, UserPlus, Mail, Lock, Search, Edit, Trash2, History, Clock, X, Save, Loader2
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -61,7 +61,7 @@ export const EnhancedUserManagement: React.FC<EnhancedUserManagementProps> = ({
   const [useCardLayout, setUseCardLayout] = useState(true);
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
-  
+
   // Confirmation dialogs state
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmDialogType, setConfirmDialogType] = useState<'deactivate' | 'activate' | 'delete' | null>(null);
@@ -223,7 +223,7 @@ export const EnhancedUserManagement: React.FC<EnhancedUserManagementProps> = ({
 
   const handleConfirmAction = async () => {
     if (!confirmDialogUserId || !confirmDialogType) return;
-    
+
     setIsConfirmLoading(true);
     try {
       const user = users.find(u => u.id === confirmDialogUserId);
@@ -241,24 +241,24 @@ export const EnhancedUserManagement: React.FC<EnhancedUserManagementProps> = ({
       if (result?.success) {
         const fetchedUsers = await getUsers();
         onUsersChange(fetchedUsers);
-        
+
         const messages = {
           deactivate: 'User deactivated successfully',
           activate: 'User reactivated successfully',
           delete: 'User deleted permanently'
         };
-        
+
         toast({
           title: 'Success',
           description: messages[confirmDialogType]
         });
-        
+
         const actions = {
           deactivate: 'update',
           activate: 'update',
           delete: 'delete_user'
         };
-        
+
         await logActivity({
           action: actions[confirmDialogType] as any,
           entity: 'user',
@@ -362,7 +362,7 @@ export const EnhancedUserManagement: React.FC<EnhancedUserManagementProps> = ({
 
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>
-              {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} 
+              {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''}
               {userSearchQuery && ` (filtered from ${users.length})`}
             </span>
           </div>
@@ -530,7 +530,7 @@ export const EnhancedUserManagement: React.FC<EnhancedUserManagementProps> = ({
 
       {/* Confirmation Dialog */}
       <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md w-[95vw] sm:w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {confirmDialogType === 'deactivate' && '🔒 Deactivate User'}
@@ -623,7 +623,7 @@ export const EnhancedUserManagement: React.FC<EnhancedUserManagementProps> = ({
             {/* User Name/Employee Select */}
             <div className="space-y-2">
               <Label htmlFor="employee-select">Name/Employee</Label>
-              <Select 
+              <Select
                 value={editingUserId ? editUserName : newUserName}
                 onValueChange={(value) => editingUserId ? setEditUserName(value) : setNewUserName(value)}
               >
@@ -705,7 +705,7 @@ export const EnhancedUserManagement: React.FC<EnhancedUserManagementProps> = ({
             {/* Role Selection */}
             <div className="space-y-2">
               <Label htmlFor="role">Role *</Label>
-              <Select 
+              <Select
                 value={editingUserId ? editUserRole : newUserRole}
                 onValueChange={(value: UserRole) => editingUserId ? setEditUserRole(value) : setNewUserRole(value)}
               >
@@ -728,9 +728,9 @@ export const EnhancedUserManagement: React.FC<EnhancedUserManagementProps> = ({
           </div>
 
           <DialogFooter className="px-6 py-4 border-t sm:border-0 bg-background sticky bottom-0 z-10 gap-2 sm:gap-0">
-            <Button 
-              variant="outline" 
-              className="flex-1 sm:flex-none" 
+            <Button
+              variant="outline"
+              className="flex-1 sm:flex-none"
               onClick={() => {
                 setIsAddUserDialogOpen(false);
                 handleCancelUserEdit();
@@ -738,8 +738,8 @@ export const EnhancedUserManagement: React.FC<EnhancedUserManagementProps> = ({
             >
               Cancel
             </Button>
-            <Button 
-              className="flex-1 sm:flex-none" 
+            <Button
+              className="flex-1 sm:flex-none"
               onClick={editingUserId ? handleSaveUserEdit : handleCreateUser}
             >
               {editingUserId ? 'Update User' : 'Create User'}

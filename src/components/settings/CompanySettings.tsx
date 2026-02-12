@@ -675,34 +675,26 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
     });
   };
 
-  const handleSave = () => {
-    toast({
-      title: "Settings Saved",
-      description: "Company settings have been updated successfully."
-    });
+  const handleSave = async () => {
+    try {
+      const savedSettings = await dataService.companySettings.updateCompanySettings(formData);
 
-    // Save using dataService
-    (async () => {
-      try {
-        const savedSettings = await dataService.companySettings.updateCompanySettings(formData);
+      // Update parent state with the fresh data
+      onSave(savedSettings);
 
-        // Update parent state with the fresh data
-        onSave(savedSettings);
-
-        // Show success message
-        toast({
-          title: "Settings Saved",
-          description: "Company settings have been updated successfully."
-        });
-      } catch (err) {
-        logger.error('Failed to save settings', err);
-        toast({
-          title: "Save Failed",
-          description: "Failed to save settings. Please try again.",
-          variant: "destructive"
-        });
-      }
-    })();
+      // Show success message
+      toast({
+        title: "Settings Saved",
+        description: "Company settings have been updated successfully."
+      });
+    } catch (err) {
+      logger.error('Failed to save settings', err);
+      toast({
+        title: "Save Failed",
+        description: "Failed to save settings. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
 
@@ -2172,7 +2164,7 @@ export const CompanySettings = ({ settings, onSave, employees, onEmployeesChange
                         title: "Invite Email",
                         description: "Your email client should open with the invite link. You can also copy the link manually."
                       });
-                      navigator.clipboard.writeText(inviteLink).catch(() => {});
+                      navigator.clipboard.writeText(inviteLink).catch(() => { });
                     }}
                   >
                     <Mail className="h-4 w-4" />

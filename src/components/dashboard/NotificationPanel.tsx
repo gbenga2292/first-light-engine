@@ -13,7 +13,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Asset, Site, Employee } from "@/types/asset";
 import { EquipmentLog, DowntimeEntry } from "@/types/equipment";
-import { AlertTriangle, CheckCircle, Clock, Wrench, Zap, Plus, X, MapPin, Calendar as CalendarIcon, Layers } from "lucide-react";
+import { MaintenanceLog } from "@/types/maintenance";
+import { AlertTriangle, CheckCircle, Clock, Wrench, Zap, Plus, X, MapPin, Calendar as CalendarIcon, Layers, Tool } from "lucide-react";
 import { format } from "date-fns";
 import { createDefaultOperationalLog, calculateDieselRefill, getDieselOverdueDays } from "@/utils/defaultLogTemplate";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,6 +25,7 @@ interface NotificationPanelProps {
   assets: Asset[];
   sites: Site[];
   equipmentLogs: EquipmentLog[];
+  maintenanceLogs: MaintenanceLog[];
   employees: Employee[];
   onQuickLogEquipment: (log: EquipmentLog) => void;
   onBulkLogEquipment?: (logs: EquipmentLog[]) => Promise<void>;
@@ -37,18 +39,29 @@ interface PendingLogItem {
   isOverdue: boolean;
 }
 
+interface MaintenanceDueItem {
+  asset: Asset;
+  nextServiceDue?: Date;
+  daysUntilDue: number;
+  isOverdue: boolean;
+  lastMaintenance?: MaintenanceLog;
+}
+
 type FilterPriority = "all" | "critical" | "warning" | "normal";
+type NotificationTab = "logs" | "maintenance";
 
 export const NotificationPanel = ({
   assets,
   sites,
   equipmentLogs,
+  maintenanceLogs,
   employees,
   onQuickLogEquipment,
   onBulkLogEquipment
 }: NotificationPanelProps) => {
   const { toast } = useToast();
   const { hasPermission } = useAuth();
+  const [notificationTab, setNotificationTab] = useState<NotificationTab>("logs");
   const [showQuickLogDialog, setShowQuickLogDialog] = useState(false);
   const [showBulkLogDialog, setShowBulkLogDialog] = useState(false);
   const [selectedPendingItem, setSelectedPendingItem] = useState<PendingLogItem | null>(null);
@@ -158,11 +171,77 @@ export const NotificationPanel = ({
     });
   };
 
+  // Calculate maintenance due items
+  const getMaintenanceDueItems = (): MaintenanceDueItem[] => {
+    const dueItems: MaintenanceDueItem[] = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Get all equipment that have service intervals
+    const machinesWithService = assets.filter(
+      asset => asset.type === 'equipment' && asset.serviceInterval
+    );
+
+    machinesWithService.forEach(asset => {
+      // Find the latest maintenance log for this asset
+      const assetLogs = maintenanceLogs
+        .filter(log => log.machineId === asset.id)
+        .sort((a, b) => new Date(b.dateStarted).getTime() - new Date(a.dateStarted).getTime());
+
+      const lastMaintenance = assetLogs[0];
+      let nextServiceDue: Date | undefined;
+      let daysUntilDue = 0;
+
+      if (lastMaintenance?.nextServiceDue) {
+        // Use the explicitly set next service due date
+        nextServiceDue = new Date(lastMaintenance.nextServiceDue);
+      } else if (lastMaintenance && asset.serviceInterval) {
+        // Calculate based on last maintenance + service interval (serviceInterval is in months)
+        nextServiceDue = new Date(lastMaintenance.dateStarted);
+        nextServiceDue.setMonth(nextServiceDue.getMonth() + asset.serviceInterval);
+      } else if (asset.deploymentDate && asset.serviceInterval) {
+        // Calculate based on deployment date if no maintenance history
+        nextServiceDue = new Date(asset.deploymentDate);
+        nextServiceDue.setMonth(nextServiceDue.getMonth() + asset.serviceInterval);
+      }
+
+      if (nextServiceDue) {
+        nextServiceDue.setHours(0, 0, 0, 0);
+        daysUntilDue = Math.floor((nextServiceDue.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+        // Show if due within 30 days or overdue
+        if (daysUntilDue <= 30) {
+          dueItems.push({
+            asset,
+            nextServiceDue,
+            daysUntilDue,
+            isOverdue: daysUntilDue < 0,
+            lastMaintenance
+          });
+        }
+      }
+    });
+
+    // Sort: overdue first, then by days until due
+    return dueItems.sort((a, b) => {
+      if (a.isOverdue && !b.isOverdue) return -1;
+      if (!a.isOverdue && b.isOverdue) return 1;
+      return a.daysUntilDue - b.daysUntilDue;
+    });
+  };
+
   const pendingLogs = getPendingLogs();
+  const maintenanceDueItems = getMaintenanceDueItems();
 
   const getPriority = (item: PendingLogItem): FilterPriority => {
     if (item.isOverdue) return "critical";
     if (item.missingDays > 1) return "warning";
+    return "normal";
+  };
+
+  const getMaintenancePriority = (item: MaintenanceDueItem): FilterPriority => {
+    if (item.isOverdue) return "critical";
+    if (item.daysUntilDue <= 7) return "warning";
     return "normal";
   };
 
@@ -363,7 +442,7 @@ export const NotificationPanel = ({
   };
 
   // All logged state
-  if (pendingLogs.length === 0 && dismissedItems.size === 0) {
+  if (pendingLogs.length === 0 && maintenanceDueItems.length === 0 && dismissedItems.size === 0) {
     return (
       <Card className="border-0 shadow-soft bg-success/10">
         <CardContent className="py-6">
@@ -372,8 +451,8 @@ export const NotificationPanel = ({
               <CheckCircle className="h-5 w-5 text-success" />
             </div>
             <div>
-              <p className="font-medium text-success">All Equipment Logged</p>
-              <p className="text-sm text-success/80">All daily logs are up to date</p>
+              <p className="font-medium text-success">All Up to Date</p>
+              <p className="text-sm text-success/80">Equipment logs and maintenance are current</p>
             </div>
           </div>
         </CardContent>
@@ -412,22 +491,50 @@ export const NotificationPanel = ({
       <Card className="border-0 shadow-soft overflow-hidden">
         {/* Mobile-optimized Header */}
         <CardHeader className="pb-3 space-y-3">
+          {/* Main Notification Type Tabs */}
+          <Tabs value={notificationTab} onValueChange={(v) => setNotificationTab(v as NotificationTab)} className="w-full">
+            <TabsList className="w-full h-10 p-1 grid grid-cols-2">
+              <TabsTrigger value="logs" className="text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <Wrench className="h-4 w-4 mr-2" />
+                Equipment Logs
+                {pendingLogs.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-[10px]">
+                    {pendingLogs.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="maintenance" className="text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <Tool className="h-4 w-4 mr-2" />
+                Maintenance Due
+                {maintenanceDueItems.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-[10px]">
+                    {maintenanceDueItems.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <div className="h-8 w-8 rounded-full bg-warning/20 flex items-center justify-center shrink-0">
-                <AlertTriangle className="h-4 w-4 text-warning" />
+                {notificationTab === "logs" ? (
+                  <Wrench className="h-4 w-4 text-warning" />
+                ) : (
+                  <Tool className="h-4 w-4 text-warning" />
+                )}
               </div>
               <div className="min-w-0">
                 <CardTitle className="text-base font-semibold truncate">
-                  Pending Equipment Logs
+                  {notificationTab === "logs" ? "Pending Equipment Logs" : "Maintenance Due"}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Equipment requiring daily logs
+                  {notificationTab === "logs" ? "Equipment requiring daily logs" : "Machines requiring scheduled maintenance"}
                 </CardDescription>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {filteredLogs.length > 1 && onBulkLogEquipment && (
+              {notificationTab === "logs" && filteredLogs.length > 1 && onBulkLogEquipment && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -439,31 +546,28 @@ export const NotificationPanel = ({
                   Bulk Log
                 </Button>
               )}
-              {filteredLogs.length > 0 && (
-                <Badge variant="secondary" className="shrink-0 text-xs">
-                  {filteredLogs.length}
-                </Badge>
-              )}
             </div>
           </div>
 
-          {/* Mobile-friendly Filter Tabs */}
-          <Tabs value={filterPriority} onValueChange={(v) => setFilterPriority(v as FilterPriority)} className="w-full">
-            <TabsList className="w-full h-9 p-1 grid grid-cols-4">
-              <TabsTrigger value="all" className="text-xs px-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                All ({pendingLogs.length})
-              </TabsTrigger>
-              <TabsTrigger value="critical" className="text-xs px-2 data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground">
-                {criticalCount}
-              </TabsTrigger>
-              <TabsTrigger value="warning" className="text-xs px-2 data-[state=active]:bg-warning data-[state=active]:text-warning-foreground">
-                {warningCount}
-              </TabsTrigger>
-              <TabsTrigger value="normal" className="text-xs px-2">
-                {normalCount}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          {/* Priority Filter Tabs (only for equipment logs) */}
+          {notificationTab === "logs" && (
+            <Tabs value={filterPriority} onValueChange={(v) => setFilterPriority(v as FilterPriority)} className="w-full">
+              <TabsList className="w-full h-9 p-1 grid grid-cols-4">
+                <TabsTrigger value="all" className="text-xs px-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  All ({pendingLogs.length})
+                </TabsTrigger>
+                <TabsTrigger value="critical" className="text-xs px-2 data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground">
+                  {criticalCount}
+                </TabsTrigger>
+                <TabsTrigger value="warning" className="text-xs px-2 data-[state=active]:bg-warning data-[state=active]:text-warning-foreground">
+                  {warningCount}
+                </TabsTrigger>
+                <TabsTrigger value="normal" className="text-xs px-2">
+                  {normalCount}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
         </CardHeader>
 
         <CardContent className="p-0">

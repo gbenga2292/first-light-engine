@@ -29,7 +29,7 @@ const getRoleLabel = (role: string | undefined) => {
 };
 
 export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ onLogout, onAvatarChange }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, updateUserAvatar } = useAuth();
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const colorInputRef = useRef<HTMLInputElement>(null);
@@ -53,7 +53,57 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ onLogout, onAvatar
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Compress image to reduce database size
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          // Create canvas for compression
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Failed to get canvas context'));
+            return;
+          }
+
+          // Calculate new dimensions (max 400x400 for avatars)
+          const maxSize = 400;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxSize) {
+              height = (height * maxSize) / width;
+              width = maxSize;
+            }
+          } else {
+            if (height > maxSize) {
+              width = (width * maxSize) / height;
+              height = maxSize;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          // Draw and compress
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Convert to base64 with quality compression (0.8 = 80% quality)
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+          resolve(compressedBase64);
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -62,25 +112,33 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ onLogout, onAvatar
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image size must be less than 5MB');
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image size must be less than 10MB');
       return;
     }
 
     setIsUploadingAvatar(true);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64String = reader.result as string;
-      localStorage.setItem(`avatar_${currentUser?.id}`, base64String);
-      onAvatarChange?.(base64String);
-      toast.success('Avatar updated successfully');
+
+    try {
+      // Compress the image
+      const compressedBase64 = await compressImage(file);
+
+      // Optimistic update
+      localStorage.setItem(`avatar_${currentUser?.id}`, compressedBase64);
+      onAvatarChange?.(compressedBase64);
+
+      if (currentUser?.id) {
+        await updateUserAvatar(currentUser.id, compressedBase64);
+        toast.success('Avatar updated successfully');
+      }
+    } catch (error) {
+      console.error('Failed to process avatar', error);
+      toast.error('Failed to process image');
+    } finally {
       setIsUploadingAvatar(false);
-    };
-    reader.onerror = () => {
-      toast.error('Failed to read image file');
-      setIsUploadingAvatar(false);
-    };
-    reader.readAsDataURL(file);
+      // Reset input to allow re-uploading the same file
+      event.target.value = '';
+    }
   };
 
   const lastActiveTime = currentUser?.lastActive
@@ -132,7 +190,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ onLogout, onAvatar
             <div className="relative group">
               <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <Avatar className="h-32 w-32 border-4 border-white/30 shadow-2xl relative">
-                <AvatarImage src={localStorage.getItem(`avatar_${currentUser?.id}`) || currentUser?.avatar} />
+                <AvatarImage src={currentUser?.avatar || localStorage.getItem(`avatar_${currentUser?.id}`) || undefined} />
                 <AvatarFallback className="text-5xl bg-white/20 text-white font-bold">
                   {currentUser?.name?.charAt(0).toUpperCase() || currentUser?.username?.charAt(0).toUpperCase() || 'U'}
                 </AvatarFallback>
