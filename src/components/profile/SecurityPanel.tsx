@@ -18,7 +18,7 @@ interface SecurityPanelProps {
 export const SecurityPanel: React.FC<SecurityPanelProps> = ({ onPasswordChange, isLoading = false }) => {
   const { currentUser, updateUser } = useAuth();
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
-  const [is2FAEnabled, setIs2FAEnabled] = useState(false);
+  const [isMFAEnabled, setIsMFAEnabled] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
@@ -69,14 +69,14 @@ export const SecurityPanel: React.FC<SecurityPanelProps> = ({ onPasswordChange, 
     }
   };
 
-  const handle2FAToggle = async (enabled: boolean) => {
+  const handleMFAToggle = async (enabled: boolean) => {
     setIsSaving(true);
     try {
-      // TODO: Implement 2FA API call
-      setIs2FAEnabled(enabled);
-      toast.success(`Two-Factor Authentication ${enabled ? 'enabled' : 'disabled'}`);
+      await updateUser(currentUser?.id || '', { mfa_enabled: enabled } as any);
+      setIsMFAEnabled(enabled);
+      toast.success(`Multi-Factor Authentication ${enabled ? 'enabled' : 'disabled'}`);
     } catch (error) {
-      toast.error('Failed to update 2FA settings');
+      toast.error('Failed to update MFA settings');
     } finally {
       setIsSaving(false);
     }
@@ -122,20 +122,20 @@ export const SecurityPanel: React.FC<SecurityPanelProps> = ({ onPasswordChange, 
             </div>
           </div>
 
-          {/* 2FA Section */}
+          {/* MFA Section */}
           <div className="flex items-center justify-between p-4 bg-indigo-500/5 rounded-lg border border-indigo-200/30 dark:border-indigo-800/30">
             <div className="flex items-start gap-3">
               <Smartphone className="h-5 w-5 text-indigo-600 mt-1 flex-shrink-0" />
               <div>
-                <h4 className="font-semibold">Two-Factor Authentication</h4>
+                <h4 className="font-semibold">Multi-Factor Authentication</h4>
                 <p className="text-sm text-muted-foreground">
                   Add an extra layer of security to your account
                 </p>
               </div>
             </div>
             <Switch
-              checked={is2FAEnabled}
-              onCheckedChange={handle2FAToggle}
+              checked={isMFAEnabled}
+              onCheckedChange={handleMFAToggle}
               disabled={isSaving || isLoading}
             />
           </div>

@@ -120,7 +120,7 @@ export const UserCard: React.FC<UserCardProps> = ({
       </div>
 
       {/* Activity Status */}
-      <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+      <div className="mb-4 p-3 bg-muted/50 rounded-lg">
         <LastActiveStatus
           lastActive={user.lastActive}
           isOnline={user.isOnline}

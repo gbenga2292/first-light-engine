@@ -107,10 +107,20 @@ export const authService = {
                     username: data.username,
                     role: data.role as UserRole,
                     name: data.name,
+                    email: data.email || undefined,
+                    lastActive: data.last_active || undefined,
                     signatureUrl,
                     created_at: data.created_at,
                     updated_at: data.updated_at
                 };
+
+                // Record login and update last active
+                try {
+                    await authService.recordLogin(user.id, { loginType: 'password' });
+                    await authService.updateLastActive(user.id);
+                } catch (e) {
+                    console.warn('Failed to record login/update last active', e);
+                }
 
                 return { success: true, user };
             }
@@ -156,10 +166,20 @@ export const authService = {
                     username: userData.username,
                     role: userData.role as UserRole,
                     name: userData.name,
+                    email: userData.email || undefined,
+                    lastActive: userData.last_active || undefined,
                     signatureUrl,
                     created_at: userData.created_at,
                     updated_at: userData.updated_at
                 };
+
+                // Record login and update last active
+                try {
+                    await authService.recordLogin(user.id, { loginType: 'password' });
+                    await authService.updateLastActive(user.id);
+                } catch (e) {
+                    console.warn('Failed to record login/update last active', e);
+                }
 
                 return { success: true, user };
             }
@@ -182,6 +202,8 @@ export const authService = {
             username: user.username,
             role: user.role as UserRole,
             name: user.name,
+            email: user.email || undefined,
+            lastActive: user.last_active || undefined,
             created_at: user.created_at,
             updated_at: user.updated_at
         }));
@@ -311,14 +333,46 @@ export const authService = {
         return { success: true };
     },
 
-    // Minimal/no-op auth extensions for UI-level features
+    // Login history using login_history table
     getLoginHistory: async (userId: string) => {
-        return [] as any[];
+        try {
+            const { data, error } = await supabase
+                .from('login_history')
+                .select('*')
+                .eq('user_id', parseInt(userId))
+                .order('timestamp', { ascending: false })
+                .limit(20);
+            if (error) throw error;
+            return (data || []).map((record: any) => ({
+                id: record.id.toString(),
+                userId: record.user_id.toString(),
+                timestamp: record.timestamp,
+                ipAddress: record.ip_address,
+                deviceInfo: record.device_info,
+                location: record.location,
+                loginType: record.login_type || 'password',
+                status: record.status || 'success',
+                failureReason: record.failure_reason,
+            }));
+        } catch (error) {
+            console.error('Failed to get login history:', error);
+            return [];
+        }
     },
 
     recordLogin: async (userId: string, details: any) => {
-        // No-op for now. Intended shape: { ipAddress, deviceInfo, loginType }
-        return;
+        try {
+            const deviceInfo = navigator.userAgent || 'Unknown Device';
+            await supabase.from('login_history').insert({
+                user_id: parseInt(userId),
+                device_info: details?.deviceInfo || deviceInfo,
+                ip_address: details?.ipAddress || null,
+                login_type: details?.loginType || 'password',
+                status: 'success',
+            });
+        } catch (error) {
+            console.error('Failed to record login:', error);
+        }
     },
 
     getCustomRoles: async () => {
@@ -346,7 +400,14 @@ export const authService = {
     },
 
     updateLastActive: async (userId: string) => {
-        return;
+        try {
+            await supabase
+                .from('users')
+                .update({ last_active: new Date().toISOString() })
+                .eq('id', parseInt(userId));
+        } catch (error) {
+            console.error('Failed to update last active:', error);
+        }
     },
 
     generateInviteLink: async (userId: string) => {
