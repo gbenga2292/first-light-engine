@@ -140,8 +140,8 @@ const ProfilePage = () => {
                     "flex-1 overflow-y-auto overflow-x-hidden flex flex-col",
                     isMobile && "pb-16"
                 )}>
-                    {/* Custom Header with Back Button */}
-                    <div className="h-[40px] border-b border-border/40 bg-background/95 backdrop-blur sticky top-0 z-40 flex items-center justify-between px-4">
+                {/* Custom Header with Back Button */}
+                    <div className="h-[40px] border-b border-border/40 bg-background/95 backdrop-blur sticky top-0 z-40 flex items-center justify-between px-4 mobile-title-bar-offset">
                         <div className="flex items-center gap-2">
                             <Button
                                 variant="ghost"
