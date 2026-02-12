@@ -132,7 +132,7 @@ export const ReturnWaybillDocument = ({ waybill, sites, companySettings, onClose
     }
   };
 
-  const siteName = sites.find(site => site.id === waybill.siteId)?.name || 'Unknown Site';
+  const siteName = sites.find((site) => site.id === waybill.siteId)?.name || 'Unknown Site';
 
   return (
     <>
@@ -142,50 +142,50 @@ export const ReturnWaybillDocument = ({ waybill, sites, companySettings, onClose
         title={`Return Waybill ${waybill.id}`}
         subtitle={waybill.siteId ? siteName : undefined}
         icon={<ArrowLeft className="h-5 w-5" />}
-        maxWidth="max-w-6xl"
-      >
+        maxWidth="max-w-6xl">
+
         {/* Mobile Action Buttons */}
-        {isMobile && (
-          <div className="flex gap-2 mb-4">
+        {isMobile &&
+        <div className="flex gap-2 mb-4">
             <Button
-              onClick={handlePreview}
-              variant="outline"
-              className="flex-1 gap-2"
-              disabled={!hasPermission('print_documents')}
-            >
+            onClick={handlePreview}
+            variant="outline"
+            className="flex-1 gap-2"
+            disabled={!hasPermission('print_documents')}>
+
               <Printer className="h-4 w-4" />
               Preview
             </Button>
             <Button
-              onClick={handleDownloadPDF}
-              className="flex-1 gap-2 bg-gradient-primary"
-              disabled={!hasPermission('print_documents')}
-            >
+            onClick={handleDownloadPDF}
+            className="flex-1 gap-2 bg-gradient-primary"
+            disabled={!hasPermission('print_documents')}>
+
               <Download className="h-4 w-4" />
               PDF
             </Button>
           </div>
-        )}
+        }
 
         {/* Desktop Header with Actions */}
-        {!isMobile && (
-          <div className="flex items-center justify-between mb-6">
+        {!isMobile &&
+        <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2 flex-wrap">
               {getStatusBadge(waybill.status)}
               <span className="text-sm text-muted-foreground">
                 Created: {new Date(waybill.createdAt).toLocaleDateString('en-GB')}
               </span>
-              {waybill.status === 'return_completed' && (
-                <span className="text-sm text-muted-foreground ml-2">
+              {waybill.status === 'return_completed' &&
+            <span className="text-sm text-muted-foreground ml-2">
                   Actual Return: {new Date(waybill.updatedAt).toLocaleDateString('en-GB')}
                 </span>
-              )}
-              {waybill.siteId && (
-                <div className="flex items-center gap-1 ml-2">
+            }
+              {waybill.siteId &&
+            <div className="flex items-center gap-1 ml-2">
                   <MapPin className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground font-medium">{siteName}</span>
                 </div>
-              )}
+            }
             </div>
             <div className="flex gap-2">
               <Button onClick={handlePreview} variant="outline" className="gap-2" disabled={!hasPermission('print_documents')}>
@@ -198,22 +198,22 @@ export const ReturnWaybillDocument = ({ waybill, sites, companySettings, onClose
               </Button>
             </div>
           </div>
-        )}
+        }
 
         {/* Mobile Status Badge */}
-        {isMobile && (
-          <div className="flex flex-wrap items-center gap-2 mb-4">
+        {isMobile &&
+        <div className="flex flex-wrap items-center gap-2 mb-4">
             {getStatusBadge(waybill.status)}
             <span className="text-sm text-muted-foreground">
               Created: {new Date(waybill.createdAt).toLocaleDateString('en-GB')}
             </span>
-            {waybill.status === 'return_completed' && (
-              <span className="text-sm text-muted-foreground">
+            {waybill.status === 'return_completed' &&
+          <span className="text-sm text-muted-foreground">
                 Returned: {new Date(waybill.updatedAt).toLocaleDateString('en-GB')}
               </span>
-            )}
+          }
           </div>
-        )}
+        }
 
         <div className="space-y-6 print:space-y-4">
           {/* Header Information */}
@@ -229,15 +229,15 @@ export const ReturnWaybillDocument = ({ waybill, sites, companySettings, onClose
                   </div>
                 </div>
 
-                {waybill.expectedReturnDate && (
-                  <div className="flex items-center gap-2">
+                {waybill.expectedReturnDate &&
+                <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                     <div>
                       <p className="text-sm text-muted-foreground">Expected Return</p>
                       <p className="font-medium">{new Date(waybill.expectedReturnDate).toLocaleDateString('en-GB')}</p>
                     </div>
                   </div>
-                )}
+                }
               </div>
 
               <div className="space-y-3">
@@ -249,15 +249,15 @@ export const ReturnWaybillDocument = ({ waybill, sites, companySettings, onClose
                   </div>
                 </div>
 
-                {waybill.vehicle && (
-                  <div className="flex items-center gap-2">
+                {waybill.vehicle &&
+                <div className="flex items-center gap-2">
                     <Truck className="h-4 w-4 text-muted-foreground" />
                     <div>
                       <p className="text-sm text-muted-foreground">Vehicle</p>
                       <p className="font-medium">{waybill.vehicle}</p>
                     </div>
                   </div>
-                )}
+                }
               </div>
             </div>
 
@@ -280,24 +280,24 @@ export const ReturnWaybillDocument = ({ waybill, sites, companySettings, onClose
                 <div>Status</div>
               </div>
 
-              {waybill.items.map((item, index) => (
-                <div key={index} className="px-4 py-3 border-t grid grid-cols-4 gap-4 text-sm">
+              {waybill.items.map((item, index) =>
+              <div key={index} className="px-4 py-3 border-t grid grid-cols-4 gap-4 text-sm">
                   <div className="font-medium">{item.assetName}</div>
                   <div>{item.quantity}</div>
                   <div>{item.returnedQuantity}</div>
                   <div>
                     <Badge
-                      variant={
-                        item.status === 'outstanding' ? 'secondary' :
-                          item.status === 'return_completed' ? 'default' : 'outline'
-                      }
-                      className="text-xs"
-                    >
+                    variant={
+                    item.status === 'outstanding' ? 'secondary' :
+                    item.status === 'return_completed' ? 'default' : 'outline'
+                    }
+                    className="text-xs">
+
                       {item.status.replace('_', ' ').toUpperCase()}
                     </Badge>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
@@ -323,13 +323,13 @@ export const ReturnWaybillDocument = ({ waybill, sites, companySettings, onClose
         </div>
 
         {/* Desktop Close Button */}
-        {!isMobile && (
-          <div className="flex justify-end gap-3 pt-6 print:hidden">
+        {!isMobile &&
+        <div className="flex justify-end gap-3 pt-6 print:hidden">
             <Button variant="outline" onClick={onClose}>
               Close
             </Button>
           </div>
-        )}
+        }
       </ResponsiveFormContainer>
 
       <PDFPreviewDialog
@@ -339,8 +339,8 @@ export const ReturnWaybillDocument = ({ waybill, sites, companySettings, onClose
         title={`Return Waybill ${waybill.id} - Preview`}
         fileName={`Return_Waybill_${waybill.id}.pdf`}
         onPrint={handlePrint}
-        onDownload={handleDownloadPDF}
-      />
-    </>
-  );
+        onDownload={handleDownloadPDF} />
+
+    </>);
+
 };
