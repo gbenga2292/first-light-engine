@@ -38,11 +38,11 @@ function createWindow() {
     width: 1400,
     height: 900,
     show: false, // Don't show until ready
-    titleBarStyle: 'hidden', // Hide native title bar but keep window controls functionality
+    titleBarStyle: 'hidden',
     titleBarOverlay: {
-      color: '#00000000', // Fully transparent
+      color: '#00000000',
       symbolColor: '#ffffff',
-      height: 0 // Minimize the overlay height
+      height: 30
     },
     webPreferences: {
       nodeIntegration: false,

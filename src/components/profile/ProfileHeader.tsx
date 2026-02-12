@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Camera, LogOut, Sparkles } from 'lucide-react';
+import { Camera, LogOut, Sparkles, PenLine } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -32,7 +32,22 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ onLogout, onAvatar
   const { currentUser } = useAuth();
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const colorInputRef = useRef<HTMLInputElement>(null);
+
+  // Custom Color State
+  const [customColor, setCustomColor] = useState<string | null>(() => {
+    return currentUser?.id ? localStorage.getItem(`profile_color_${currentUser.id}`) : null;
+  });
+
   const roleColors = getRoleColor(currentUser?.role);
+
+  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const color = e.target.value;
+    setCustomColor(color);
+    if (currentUser?.id) {
+      localStorage.setItem(`profile_color_${currentUser.id}`, color);
+    }
+  };
 
   const handleAvatarUpload = () => {
     fileInputRef.current?.click();
@@ -68,16 +83,46 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ onLogout, onAvatar
     reader.readAsDataURL(file);
   };
 
-  const lastActiveTime = currentUser?.lastActive 
+  const lastActiveTime = currentUser?.lastActive
     ? formatDistanceToNow(new Date(currentUser.lastActive), { addSuffix: true })
     : 'Never';
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${roleColors.gradient} p-8 md:p-12 backdrop-blur-xl border border-white/10 shadow-2xl`}>
+    <div
+      className={`relative overflow-hidden rounded-2xl p-8 md:p-12 backdrop-blur-xl border border-white/10 shadow-2xl transition-colors duration-500`}
+      style={{
+        background: customColor || undefined
+      }}
+    >
+      {/* Default Gradient Fallback if no custom color */}
+      {!customColor && (
+        <div className={`absolute inset-0 bg-gradient-to-br ${roleColors.gradient} -z-10`} />
+      )}
+
       {/* Glassmorphic Background Elements */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-40" />
-      <div className="absolute -top-20 -right-20 h-40 w-40 bg-white/5 rounded-full blur-3xl" />
-      <div className="absolute -bottom-20 -left-20 h-40 w-40 bg-white/5 rounded-full blur-3xl" />
+      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-40 pointer-events-none" />
+      <div className="absolute -top-20 -right-20 h-40 w-40 bg-white/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-20 -left-20 h-40 w-40 bg-white/5 rounded-full blur-3xl pointer-events-none" />
+
+      {/* Color Picker Control */}
+      <div className="absolute top-4 right-4 z-20">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-white/70 hover:bg-white/20 hover:text-white rounded-full h-8 w-8 transition-all"
+          onClick={() => colorInputRef.current?.click()}
+          title="Customize Color"
+        >
+          <PenLine className="h-4 w-4" />
+        </Button>
+        <input
+          ref={colorInputRef}
+          type="color"
+          className="invisible absolute top-0 right-0 w-0 h-0"
+          onChange={handleColorChange}
+          value={customColor || '#ef4444'}
+        />
+      </div>
 
       <div className="relative z-10">
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">

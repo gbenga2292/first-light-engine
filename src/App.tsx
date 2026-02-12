@@ -29,7 +29,7 @@ import ProfilePage from "./pages/ProfilePage";
 import { logger } from "./lib/logger";
 import { Capacitor } from '@capacitor/core';
 import { SplashScreenController } from "./components/SplashScreenController";
-import { WindowControlsFloating } from "./components/layout/WindowControlsFloating";
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -181,7 +181,7 @@ const App = () => {
                   <NetworkStatus />
                   <AppDataProvider>
                     <SplashScreenController />
-                    <WindowControlsFloating />
+
                     <HashRouter>
                       <Routes>
                         <Route path="/login" element={<Login />} />

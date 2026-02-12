@@ -30,7 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { WindowControls } from "@/components/ui/window-controls";
+
 
 interface AppMenuBarProps {
   onNewAsset?: () => void;
@@ -289,10 +289,16 @@ export const AppMenuBar = ({
                 <span>Log out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
+
           </DropdownMenu>
 
-
+          {/* Spacer for Native Window Controls (Desktop) */}
+          {isElectron && (
+            <div className="hidden md:block w-[138px] h-full app-no-drag" />
+          )}
         </div>
+
+
       </div>
 
       {/* Export Options Dialog */}
