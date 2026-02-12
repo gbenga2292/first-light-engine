@@ -30,7 +30,7 @@ export const LoginHistoryCard: React.FC<LoginHistoryCardProps> = ({ isLoading = 
 
   const loadLoginHistory = async () => {
     if (!currentUser?.id) return;
-    
+
     setIsLoadingHistory(true);
     try {
       const history = await getLoginHistory(currentUser.id);
@@ -89,44 +89,43 @@ export const LoginHistoryCard: React.FC<LoginHistoryCardProps> = ({ isLoading = 
             </p>
           </div>
         ) : (
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {loginHistory.slice(0, 5).map((login, idx) => (
+          <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+            {loginHistory.slice(0, 20).map((login, idx) => (
               <div
                 key={login.id || idx}
-                className="flex items-start gap-4 p-4 bg-background/40 rounded-lg border border-border/50 hover:bg-background/60 transition-colors"
+                className="flex items-center gap-3 p-2 bg-background/40 rounded-md border border-border/50 hover:bg-background/60 transition-colors"
               >
-                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex-shrink-0">
+                <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 rounded flex-shrink-0">
                   {getDeviceIcon(login.deviceInfo)}
                 </div>
 
-                <div className="flex-1 min-w-0 space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-medium text-sm truncate">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium text-xs truncate max-w-[140px]" title={login.deviceInfo}>
                       {login.deviceInfo || 'Unknown Device'}
                     </p>
-                    <Badge variant="outline" className={`text-xs ${getLoginTypeColor(login.loginType)}`}>
-                      {login.loginType === 'password' && 'Password'}
-                      {login.loginType === 'magic_link' && 'Magic Link'}
-                      {login.loginType === 'oauth' && 'OAuth'}
-                      {!login.loginType && 'Standard'}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    {login.ipAddress && (
-                      <>
-                        <span>IP: {login.ipAddress}</span>
-                        <span>•</span>
-                      </>
-                    )}
-                    <span>
+                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                       {formatDistanceToNow(new Date(login.timestamp), { addSuffix: true })}
                     </span>
                   </div>
-                  {login.location && (
-                    <p className="text-xs text-muted-foreground">
-                      📍 {login.location}
-                    </p>
-                  )}
+
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <Badge variant="outline" className={`h-4 text-[9px] px-1 py-0 ${getLoginTypeColor(login.loginType)}`}>
+                      {login.loginType === 'password' && 'PWD'}
+                      {login.loginType === 'magic_link' && 'MAGIC'}
+                      {login.loginType === 'oauth' && 'OAUTH'}
+                      {!login.loginType && 'STD'}
+                    </Badge>
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground truncate">
+                      {login.ipAddress && <span>{login.ipAddress}</span>}
+                      {login.location && (
+                        <>
+                          <span>•</span>
+                          <span>{login.location}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}

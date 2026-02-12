@@ -47,6 +47,7 @@ export interface User {
   avatarColor?: string; // Color for generated avatar (e.g., '#FF5733')
   signatureUrl?: string; // Base64 or URL to user's signature image
   email?: string;
+  bio?: string;
   phone?: string;
   status?: 'active' | 'inactive' | 'pending_invite';
   isOnline?: boolean;
@@ -69,7 +70,7 @@ interface AuthContextType {
   getUsers: () => Promise<User[]>;
   createUser: (userData: { name: string; username: string; password: string; role: UserRole; customRoleId?: string }) => Promise<{ success: boolean; message?: string }>;
   registerUser: (userData: { name: string; username: string; password: string; role: UserRole; displayUsername?: string }) => Promise<{ success: boolean; message?: string }>;
-  updateUser: (userId: string, userData: { name?: string; username?: string; role?: UserRole; customRoleId?: string; avatar?: string; avatarColor?: string; email?: string; phone?: string; password?: string; status?: 'active' | 'inactive' | 'pending_invite' }) => Promise<{ success: boolean; message?: string }>;
+  updateUser: (userId: string, userData: { name?: string; username?: string; role?: UserRole; customRoleId?: string; avatar?: string; avatarColor?: string; email?: string; bio?: string; phone?: string; password?: string; status?: 'active' | 'inactive' | 'pending_invite' }) => Promise<{ success: boolean; message?: string }>;
   deleteUser: (userId: string) => Promise<{ success: boolean; message?: string }>;
   // New methods for enhanced features
   getLoginHistory: (userId: string) => Promise<LoginHistory[]>;
@@ -311,7 +312,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateUser = async (userId: string, userData: { name?: string; username?: string; role?: UserRole; password?: string; status?: 'active' | 'inactive' | 'pending_invite' }): Promise<{ success: boolean; message?: string }> => {
+  const updateUser = async (userId: string, userData: { name?: string; username?: string; role?: UserRole; password?: string; bio?: string; status?: 'active' | 'inactive' | 'pending_invite' }): Promise<{ success: boolean; message?: string }> => {
     try {
       const result = await dataService.auth.updateUser(userId, userData as any);
       if (result.success) {

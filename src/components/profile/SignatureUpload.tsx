@@ -331,8 +331,8 @@ export const SignatureUpload: React.FC = () => {
         <CardTitle>Signature</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex items-center gap-4">
-          <div className="h-24 w-48 flex items-center justify-center border rounded-md bg-muted/10 overflow-hidden">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+          <div className="h-24 w-full sm:w-48 flex items-center justify-center border rounded-md bg-muted/10 overflow-hidden flex-shrink-0">
             {preview ? (
               <img
                 src={preview}
@@ -349,8 +349,8 @@ export const SignatureUpload: React.FC = () => {
             )}
           </div>
 
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
+          <div className="flex-1 w-full text-center sm:text-left">
+            <div className="flex items-center justify-center sm:justify-start gap-2 mb-2 flex-wrap">
               <input
                 id="signature-file"
                 type="file"

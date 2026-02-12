@@ -108,6 +108,7 @@ export const authService = {
                     role: data.role as UserRole,
                     name: data.name,
                     email: data.email || undefined,
+                    bio: data.bio || undefined,
                     lastActive: data.last_active || undefined,
                     signatureUrl,
                     created_at: data.created_at,
@@ -167,6 +168,7 @@ export const authService = {
                     role: userData.role as UserRole,
                     name: userData.name,
                     email: userData.email || undefined,
+                    bio: userData.bio || undefined,
                     lastActive: userData.last_active || undefined,
                     signatureUrl,
                     created_at: userData.created_at,
@@ -203,6 +205,7 @@ export const authService = {
             role: user.role as UserRole,
             name: user.name,
             email: user.email || undefined,
+            bio: user.bio || undefined,
             lastActive: user.last_active || undefined,
             created_at: user.created_at,
             updated_at: user.updated_at
@@ -310,13 +313,20 @@ export const authService = {
         }
     },
 
-    updateUser: async (userId: string, userData: { name: string; username: string; role: UserRole; password?: string }): Promise<{ success: boolean; message?: string }> => {
+    updateUser: async (userId: string, userData: {
+        name?: string; username?: string; role?: UserRole; password?: string; email?: string;
+        bio?: string;
+        phone?: string;
+    }): Promise<{ success: boolean; message?: string }> => {
         const updateData: any = {
-            username: userData.username,
-            role: userData.role,
-            name: userData.name,
             updated_at: new Date().toISOString()
         };
+
+        if (userData.username) updateData.username = userData.username;
+        if (userData.role) updateData.role = userData.role;
+        if (userData.name) updateData.name = userData.name;
+        if (userData.email) updateData.email = userData.email;
+        if (userData.bio) updateData.bio = userData.bio;
 
         if (userData.password) {
             updateData.password_hash = await bcrypt.hash(userData.password, 10);

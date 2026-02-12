@@ -20,7 +20,7 @@ export const PersonalInfoCard: React.FC<PersonalInfoCardProps> = ({ onSave, isLo
   const [formData, setFormData] = useState({
     name: currentUser?.name || '',
     email: currentUser?.email || '',
-    bio: currentUser?.email || '', // Using email as bio placeholder
+    bio: currentUser?.bio || '',
   });
 
   const handleSave = async () => {
@@ -37,6 +37,7 @@ export const PersonalInfoCard: React.FC<PersonalInfoCardProps> = ({ onSave, isLo
         await updateUser(currentUser?.id || '', {
           name: formData.name,
           email: formData.email,
+          bio: formData.bio,
         });
       }
       toast.success('Profile updated successfully');
@@ -177,7 +178,7 @@ export const PersonalInfoCard: React.FC<PersonalInfoCardProps> = ({ onSave, isLo
               <MessageSquare className="h-4 w-4 text-blue-600 flex-shrink-0" />
               <div className="flex-1">
                 <p className="text-xs text-muted-foreground">Bio</p>
-                <p className="font-medium text-sm">{formData.bio || 'No bio added yet'}</p>
+                <p className="font-medium text-sm">{currentUser?.bio || 'No bio added yet'}</p>
               </div>
             </div>
           </div>
