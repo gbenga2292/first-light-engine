@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Waybill, Site, CompanySettings } from "@/types/asset";
 import { generateProfessionalPDF } from "@/utils/professionalPDFGenerator";
-import { Printer, Calendar, User, Truck, ArrowLeft, MapPin, Download } from "lucide-react";
+import { Printer, Calendar, User, Truck, ArrowLeft, MapPin, Share2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ResponsiveFormContainer } from "@/components/ui/responsive-form-container";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -83,7 +83,7 @@ export const ReturnWaybillDocument = ({ waybill, sites, companySettings, onClose
     };
   };
 
-  const handleDownloadPDF = async () => {
+  const handleSharePDF = async () => {
     const { pdf } = await generateProfessionalPDF({
       waybill,
       companySettings,
@@ -94,13 +94,23 @@ export const ReturnWaybillDocument = ({ waybill, sites, companySettings, onClose
     });
     const fileName = `Return_Waybill_${waybill.id}.pdf`;
 
-    // Use native mobile download on Android/iOS
+    // Use native mobile share on Android/iOS
     if (Capacitor.isNativePlatform()) {
       await handleMobilePdfAction(pdf, fileName, 'download');
       return;
     }
 
-    // Web/Desktop download
+    // Web Share API fallback
+    const blob = pdf.output('blob');
+    const file = new File([blob], fileName, { type: 'application/pdf' });
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: fileName });
+        return;
+      } catch (e) {
+        // User cancelled or share failed, fall back to download
+      }
+    }
     pdf.save(fileName);
   };
 
@@ -157,12 +167,12 @@ export const ReturnWaybillDocument = ({ waybill, sites, companySettings, onClose
               Preview
             </Button>
             <Button
-            onClick={handleDownloadPDF}
+            onClick={handleSharePDF}
             className="flex-1 gap-2 bg-gradient-primary"
             disabled={!hasPermission('print_documents')}>
 
-              <Download className="h-4 w-4" />
-              PDF
+              <Share2 className="h-4 w-4" />
+              Share
             </Button>
           </div>
         }
@@ -192,9 +202,9 @@ export const ReturnWaybillDocument = ({ waybill, sites, companySettings, onClose
                 <Printer className="h-4 w-4" />
                 Preview & Print
               </Button>
-              <Button onClick={handleDownloadPDF} className="gap-2 bg-gradient-primary" disabled={!hasPermission('print_documents')}>
-                <Download className="h-4 w-4" />
-                Download PDF
+              <Button onClick={handleSharePDF} className="gap-2 bg-gradient-primary" disabled={!hasPermission('print_documents')}>
+                <Share2 className="h-4 w-4" />
+                Share PDF
               </Button>
             </div>
           </div>
@@ -339,7 +349,7 @@ export const ReturnWaybillDocument = ({ waybill, sites, companySettings, onClose
         title={`Return Waybill ${waybill.id} - Preview`}
         fileName={`Return_Waybill_${waybill.id}.pdf`}
         onPrint={handlePrint}
-        onDownload={handleDownloadPDF} />
+        onDownload={handleSharePDF} />
 
     </>);
 
