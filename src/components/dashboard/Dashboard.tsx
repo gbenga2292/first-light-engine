@@ -510,7 +510,7 @@ export const Dashboard = ({
 
 
     {/* Notification Panel */}
-    <NotificationPanel assets={assets} sites={sites} equipmentLogs={equipmentLogs} employees={employees} onQuickLogEquipment={onQuickLogEquipment} onBulkLogEquipment={onBulkLogEquipment} />
+    <NotificationPanel assets={assets} sites={sites} equipmentLogs={equipmentLogs} maintenanceLogs={maintenanceLogs} employees={employees} onQuickLogEquipment={onQuickLogEquipment} onBulkLogEquipment={onBulkLogEquipment} />
 
     {/* Category Breakdown - Hidden on very small screens, collapsible */}
     <div className="hidden sm:grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
