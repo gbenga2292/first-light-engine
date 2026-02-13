@@ -2818,7 +2818,7 @@ const Index = () => {
                                 {waybill.status.replace('_', ' ')}
                               </Badge>
                               <Button
-                                onClick={() => setShowWaybillDocument(waybill)}
+                                onClick={() => handleViewWaybill(waybill)}
                                 variant="ghost"
                                 size="sm"
                                 className="h-8 w-8 p-0"

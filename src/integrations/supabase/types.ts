@@ -159,52 +159,49 @@ export type Database = {
       }
       company_settings: {
         Row: {
-          address: string
-          ai_config: string | null
-          company_name: string
+          address: string | null
+          company_name: string | null
           created_at: string | null
           currency: string | null
           date_format: string | null
-          email: string
+          email: string | null
           id: number
           logo: string | null
           notifications_email: boolean | null
           notifications_push: boolean | null
-          phone: string
+          phone: string | null
           theme: string | null
           updated_at: string | null
           website: string | null
         }
         Insert: {
-          address: string
-          ai_config?: string | null
-          company_name: string
+          address?: string | null
+          company_name?: string | null
           created_at?: string | null
           currency?: string | null
           date_format?: string | null
-          email: string
+          email?: string | null
           id?: number
           logo?: string | null
           notifications_email?: boolean | null
           notifications_push?: boolean | null
-          phone: string
+          phone?: string | null
           theme?: string | null
           updated_at?: string | null
           website?: string | null
         }
         Update: {
-          address?: string
-          ai_config?: string | null
-          company_name?: string
+          address?: string | null
+          company_name?: string | null
           created_at?: string | null
           currency?: string | null
           date_format?: string | null
-          email?: string
+          email?: string | null
           id?: number
           logo?: string | null
           notifications_email?: boolean | null
           notifications_push?: boolean | null
-          phone?: string
+          phone?: string | null
           theme?: string | null
           updated_at?: string | null
           website?: string | null
@@ -895,6 +892,9 @@ export type Database = {
       }
       users: {
         Row: {
+          avatar: string | null
+          avatar_color: string | null
+          bio: string | null
           created_at: string | null
           email: string | null
           id: number
@@ -907,10 +907,14 @@ export type Database = {
           signature_path: string | null
           signature_removed_at: string | null
           signature_uploaded_at: string | null
+          status: string | null
           updated_at: string | null
           username: string
         }
         Insert: {
+          avatar?: string | null
+          avatar_color?: string | null
+          bio?: string | null
           created_at?: string | null
           email?: string | null
           id?: number
@@ -923,10 +927,14 @@ export type Database = {
           signature_path?: string | null
           signature_removed_at?: string | null
           signature_uploaded_at?: string | null
+          status?: string | null
           updated_at?: string | null
           username: string
         }
         Update: {
+          avatar?: string | null
+          avatar_color?: string | null
+          bio?: string | null
           created_at?: string | null
           email?: string | null
           id?: number
@@ -939,6 +947,7 @@ export type Database = {
           signature_path?: string | null
           signature_removed_at?: string | null
           signature_uploaded_at?: string | null
+          status?: string | null
           updated_at?: string | null
           username?: string
         }

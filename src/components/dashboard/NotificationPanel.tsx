@@ -14,7 +14,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Asset, Site, Employee } from "@/types/asset";
 import { EquipmentLog, DowntimeEntry } from "@/types/equipment";
 import { MaintenanceLog } from "@/types/maintenance";
-import { AlertTriangle, CheckCircle, Clock, Wrench, Zap, Plus, X, MapPin, Calendar as CalendarIcon, Layers, Tool } from "lucide-react";
+import { AlertTriangle, CheckCircle, Clock, Wrench, Zap, Plus, X, MapPin, Calendar as CalendarIcon, Layers } from "lucide-react";
 import { format } from "date-fns";
 import { createDefaultOperationalLog, calculateDieselRefill, getDieselOverdueDays } from "@/utils/defaultLogTemplate";
 import { useAuth } from "@/contexts/AuthContext";
@@ -504,7 +504,7 @@ export const NotificationPanel = ({
                 )}
               </TabsTrigger>
               <TabsTrigger value="maintenance" className="text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                <Tool className="h-4 w-4 mr-2" />
+                <Wrench className="h-4 w-4 mr-2" />
                 Maintenance Due
                 {maintenanceDueItems.length > 0 && (
                   <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-[10px]">
@@ -521,7 +521,7 @@ export const NotificationPanel = ({
                 {notificationTab === "logs" ? (
                   <Wrench className="h-4 w-4 text-warning" />
                 ) : (
-                  <Tool className="h-4 w-4 text-warning" />
+                  <Wrench className="h-4 w-4 text-warning" />
                 )}
               </div>
               <div className="min-w-0">
