@@ -562,7 +562,7 @@ export const AssetTable = ({
               {!isMobile && <TableHead>Category | Type</TableHead>}
               <SortableHeader field="location">Location</SortableHeader>
               <SortableHeader field="stockStatus">Stock Status</SortableHeader>
-              <TableHead className="w-16">Actions</TableHead>
+              <TableHead className="w-16 sticky right-0 bg-muted/50 z-10">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -616,7 +616,7 @@ export const AssetTable = ({
 
               <TableCell>{getStockBadge(asset)}</TableCell>
 
-              <TableCell>
+              <TableCell className="sticky right-0 bg-card z-10">
                 <MobileActionMenu title={`${asset.name} Actions`} items={[{
                   label: "Edit Form",
                   icon: <Edit className="h-4 w-4" />,
