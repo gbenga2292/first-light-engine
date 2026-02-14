@@ -49,7 +49,7 @@ const AssetDescriptionPage = () => {
     return (
         <div className="flex flex-col min-h-screen bg-background">
             <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b p-4 flex items-center gap-3">
-                <Button variant="ghost" size="icon" onClick={() => { navigate(-1); setTimeout(() => navigate('/'), 100); }}>
+                <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
                     <ArrowLeft className="h-5 w-5" />
                 </Button>
                 <div>
