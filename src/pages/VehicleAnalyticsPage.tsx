@@ -96,7 +96,7 @@ export const VehicleAnalyticsPage = ({ vehicles, waybills, onBack, initialVehicl
                 </div>
             </div>
 
-            <div className="flex flex-1 gap-2 md:gap-6 overflow-hidden border rounded-xl bg-background/50 backdrop-blur-sm shadow-sm">
+            <div className="flex flex-1 gap-2 md:gap-6 overflow-hidden border rounded-xl bg-background/50 backdrop-blur-sm shadow-sm min-h-0" style={{ maxHeight: 'calc(100vh - 140px)' }}>
 
                 {/* List View (Left) */}
                 {(!isMobile || !selectedVehicle) && (

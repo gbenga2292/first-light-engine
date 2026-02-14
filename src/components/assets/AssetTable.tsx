@@ -785,7 +785,7 @@ export const AssetTable = ({
 
     {/* Asset Description Dialog */}
     <Dialog open={!!selectedAssetForDescription} onOpenChange={open => !open && setSelectedAssetForDescription(null)}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{selectedAssetForDescription?.name} - Description</DialogTitle>
         </DialogHeader>
