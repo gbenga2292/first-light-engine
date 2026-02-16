@@ -221,15 +221,15 @@ export const MobileBottomNav = ({ activeTab, onTabChange, onMenuClick, hide = fa
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setTheme("light")}>
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setTheme("light"); }}>
                         <Sun className="h-4 w-4 mr-2" />
                         Light
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setTheme("dark")}>
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setTheme("dark"); }}>
                         <Moon className="h-4 w-4 mr-2" />
                         Dark
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setTheme("system")}>
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setTheme("system"); }}>
                         <Monitor className="h-4 w-4 mr-2" />
                         System
                       </DropdownMenuItem>
