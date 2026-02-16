@@ -683,7 +683,7 @@ export const NotificationPanel = ({
             </div>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 overflow-y-auto">
+          <ScrollArea className="flex-1" style={{ maxHeight: 'calc(95vh - 80px)' }}>
             <div className="p-4 space-y-4">
               {/* Calendar Section - Collapsed on mobile */}
               <div className="space-y-2">
