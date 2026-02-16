@@ -571,87 +571,152 @@ export const NotificationPanel = ({
         </CardHeader>
 
         <CardContent className="p-0">
-          {filteredLogs.length === 0 ? (
-            <div className="text-center py-8 px-4 text-muted-foreground">
-              <CheckCircle className="h-10 w-10 mx-auto mb-3 opacity-50" />
-              <p className="text-sm">No pending logs in this category</p>
-            </div>
-          ) : (
-            <ScrollArea className="max-h-[400px]">
-              <div className="divide-y divide-border">
-                {filteredLogs.map((item) => {
-                  const priority = getPriority(item);
-                  const styles = getPriorityStyles(priority);
+          {notificationTab === "logs" ? (
+            <>
+              {filteredLogs.length === 0 ? (
+                <div className="text-center py-8 px-4 text-muted-foreground">
+                  <CheckCircle className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">No pending logs in this category</p>
+                </div>
+              ) : (
+                <ScrollArea className="max-h-[400px]">
+                  <div className="divide-y divide-border">
+                    {filteredLogs.map((item) => {
+                      const priority = getPriority(item);
+                      const styles = getPriorityStyles(priority);
 
-                  return (
-                    <div
-                      key={`${item.equipment.id}-${item.site.id}`}
-                      className={cn(
-                        "p-3 border-l-4 transition-colors",
-                        styles.border,
-                        styles.bg
-                      )}
-                    >
-                      <div className="flex items-start gap-3">
-                        {/* Icon */}
-                        <div className={cn("mt-0.5 shrink-0", styles.icon)}>
-                          <Wrench className="h-4 w-4" />
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0 space-y-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="font-medium text-sm truncate">{item.equipment.name}</p>
-                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-                                <MapPin className="h-3 w-3 shrink-0" />
-                                <span className="truncate">{item.site.name}</span>
-                              </div>
+                      return (
+                        <div
+                          key={`${item.equipment.id}-${item.site.id}`}
+                          className={cn(
+                            "p-3 border-l-4 transition-colors",
+                            styles.border,
+                            styles.bg
+                          )}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={cn("mt-0.5 shrink-0", styles.icon)}>
+                              <Wrench className="h-4 w-4" />
                             </div>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => handleDismiss(item)}
-                              className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
+                            <div className="flex-1 min-w-0 space-y-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="font-medium text-sm truncate">{item.equipment.name}</p>
+                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                                    <MapPin className="h-3 w-3 shrink-0" />
+                                    <span className="truncate">{item.site.name}</span>
+                                  </div>
+                                </div>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => handleDismiss(item)}
+                                  className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {item.isOverdue && (
+                                  <Badge variant="destructive" className="text-[10px] h-5 px-1.5">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    Overdue
+                                  </Badge>
+                                )}
+                                <span className="text-[11px] text-muted-foreground">
+                                  {item.lastLogDate ? (
+                                    <>Last: {format(item.lastLogDate, 'MMM dd')} • {item.missingDays}d missing</>
+                                  ) : (
+                                    "Never logged"
+                                  )}
+                                </span>
+                              </div>
+                              <Button
+                                size="sm"
+                                onClick={() => handleQuickLog(item)}
+                                disabled={!hasPermission('write_assets')}
+                                className="w-full h-9 mt-1 gap-1.5"
+                              >
+                                <Zap className="h-3.5 w-3.5" />
+                                Quick Log
+                              </Button>
+                            </div>
                           </div>
-
-                          {/* Status info */}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {item.isOverdue && (
-                              <Badge variant="destructive" className="text-[10px] h-5 px-1.5">
-                                <Clock className="h-3 w-3 mr-1" />
-                                Overdue
-                              </Badge>
-                            )}
-                            <span className="text-[11px] text-muted-foreground">
-                              {item.lastLogDate ? (
-                                <>Last: {format(item.lastLogDate, 'MMM dd')} • {item.missingDays}d missing</>
-                              ) : (
-                                "Never logged"
-                              )}
-                            </span>
-                          </div>
-
-                          {/* Action Button */}
-                          <Button
-                            size="sm"
-                            onClick={() => handleQuickLog(item)}
-                            disabled={!hasPermission('write_assets')}
-                            className="w-full h-9 mt-1 gap-1.5"
-                          >
-                            <Zap className="h-3.5 w-3.5" />
-                            Quick Log
-                          </Button>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </ScrollArea>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              )}
+            </>
+          ) : (
+            <>
+              {maintenanceDueItems.length === 0 ? (
+                <div className="text-center py-8 px-4 text-muted-foreground">
+                  <CheckCircle className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">No maintenance due at this time</p>
+                </div>
+              ) : (
+                <ScrollArea className="max-h-[400px]">
+                  <div className="divide-y divide-border">
+                    {maintenanceDueItems.map((item) => {
+                      const priority = getMaintenancePriority(item);
+                      const styles = getPriorityStyles(priority);
+
+                      return (
+                        <div
+                          key={item.asset.id}
+                          className={cn(
+                            "p-3 border-l-4 transition-colors",
+                            styles.border,
+                            styles.bg
+                          )}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={cn("mt-0.5 shrink-0", styles.icon)}>
+                              <Wrench className="h-4 w-4" />
+                            </div>
+                            <div className="flex-1 min-w-0 space-y-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="font-medium text-sm truncate">{item.asset.name}</p>
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    {item.asset.category || 'Equipment'}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {item.isOverdue ? (
+                                  <Badge variant="destructive" className="text-[10px] h-5 px-1.5">
+                                    <AlertTriangle className="h-3 w-3 mr-1" />
+                                    {Math.abs(item.daysUntilDue)}d Overdue
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[10px] h-5 px-1.5">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    Due in {item.daysUntilDue}d
+                                  </Badge>
+                                )}
+                                {item.nextServiceDue && (
+                                  <span className="text-[11px] text-muted-foreground">
+                                    Due: {format(item.nextServiceDue, 'MMM dd, yyyy')}
+                                  </span>
+                                )}
+                              </div>
+                              {item.lastMaintenance && (
+                                <p className="text-[11px] text-muted-foreground">
+                                  Last: {format(new Date(item.lastMaintenance.dateStarted), 'MMM dd')} — {item.lastMaintenance.maintenanceType}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
