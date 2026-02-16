@@ -213,7 +213,7 @@ export const MobileBottomNav = ({ activeTab, onTabChange, onMenuClick, hide = fa
                     <p className="text-sm text-muted-foreground capitalize">{currentUser.role?.replace('_', ' ')}</p>
                   </div>
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                       <Button variant="ghost" size="icon" className="shrink-0">
                         <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
                         <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
