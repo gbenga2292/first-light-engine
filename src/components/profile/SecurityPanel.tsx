@@ -8,7 +8,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Lock, Shield, Smartphone, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { generateSecret, verifyToken, generateOtpAuthUrl } from '@/lib/totp';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
+import QRCode from 'qrcode';
 
 interface SecurityPanelProps {
   onPasswordChange?: (data: { currentPassword: string; newPassword: string }) => Promise<void>;
@@ -18,8 +20,19 @@ interface SecurityPanelProps {
 export const SecurityPanel: React.FC<SecurityPanelProps> = ({ onPasswordChange, isLoading = false }) => {
   const { currentUser, updateUser } = useAuth();
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
-  const [isMFAEnabled, setIsMFAEnabled] = useState(false);
+  const [isMFAEnabled, setIsMFAEnabled] = useState(currentUser?.mfa_enabled || false);
+  const [isMFASetupOpen, setIsMFASetupOpen] = useState(false);
+  const [mfaSecret, setMfaSecret] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  React.useEffect(() => {
+    if (currentUser) {
+      setIsMFAEnabled(!!currentUser.mfa_enabled);
+    }
+  }, [currentUser]);
+
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
@@ -69,14 +82,60 @@ export const SecurityPanel: React.FC<SecurityPanelProps> = ({ onPasswordChange, 
     }
   };
 
-  const handleMFAToggle = async (enabled: boolean) => {
+  const handleMFAToggle = async (checked: boolean) => {
+    if (checked) {
+      // Start Setup Flow
+      const secret = generateSecret();
+      setMfaSecret(secret);
+
+      const otpAuthUrl = generateOtpAuthUrl(secret, currentUser?.username || 'User', 'DCEL Asset Manager');
+      try {
+        const url = await QRCode.toDataURL(otpAuthUrl);
+        setQrCodeUrl(url);
+      } catch (err) {
+        console.error('Error generating QR code', err);
+        setQrCodeUrl('');
+      }
+
+      setMfaCode('');
+      setIsMFASetupOpen(true);
+    } else {
+      // Disable MFA (Ask for confirmation?)
+      if (confirm('Are you sure you want to disable Multi-Factor Authentication?')) {
+        setIsSaving(true);
+        try {
+          await updateUser(currentUser?.id || '', { mfa_enabled: false, mfa_secret: null });
+          setIsMFAEnabled(false);
+          toast.success('Multi-Factor Authentication disabled');
+        } catch (error) {
+          toast.error('Failed to disable MFA');
+        } finally {
+          setIsSaving(false);
+        }
+      }
+    }
+  };
+
+  const handleVerifyAndEnableMFA = async () => {
+    if (!mfaCode || mfaCode.length !== 6) {
+      toast.error('Please enter a valid 6-digit code');
+      return;
+    }
+
+    const isValid = await verifyToken(mfaCode, mfaSecret);
+    if (!isValid) {
+      toast.error('Invalid code. Please try again.');
+      return;
+    }
+
     setIsSaving(true);
     try {
-      await updateUser(currentUser?.id || '', { mfa_enabled: enabled } as any);
-      setIsMFAEnabled(enabled);
-      toast.success(`Multi-Factor Authentication ${enabled ? 'enabled' : 'disabled'}`);
+      await updateUser(currentUser?.id || '', { mfa_enabled: true, mfa_secret: mfaSecret });
+      setIsMFAEnabled(true);
+      setIsMFASetupOpen(false);
+      toast.success('Multi-Factor Authentication enabled successfully');
     } catch (error) {
-      toast.error('Failed to update MFA settings');
+      toast.error('Failed to enable MFA');
     } finally {
       setIsSaving(false);
     }
@@ -158,9 +217,9 @@ export const SecurityPanel: React.FC<SecurityPanelProps> = ({ onPasswordChange, 
 
       {/* Password Change Dialog */}
       <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" showCloseLeft>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 ml-6">
               <Lock className="h-5 w-5 text-red-600" />
               Change Password
             </DialogTitle>
@@ -227,6 +286,69 @@ export const SecurityPanel: React.FC<SecurityPanelProps> = ({ onPasswordChange, 
               className="bg-red-600 hover:bg-red-700"
             >
               {isSaving ? 'Changing...' : 'Change Password'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MFA Setup Dialog */}
+      <Dialog open={isMFASetupOpen} onOpenChange={setIsMFASetupOpen}>
+        <DialogContent className="sm:max-w-md" showCloseLeft>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 ml-6">
+              <Smartphone className="h-5 w-5 text-indigo-600" />
+              Setup Multi-Factor Authentication
+            </DialogTitle>
+            <DialogDescription>
+              Scan the code with your authenticator app (like Google Authenticator) or enter the secret key manually.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            <div className="flex flex-col items-center justify-center space-y-4">
+              {qrCodeUrl && (
+                <div className="bg-white p-2 rounded-lg border border-border">
+                  <img src={qrCodeUrl} alt="MFA QR Code" className="w-48 h-48" />
+                </div>
+              )}
+              <div className="bg-muted p-4 rounded-md text-center w-full">
+                <p className="text-xs text-muted-foreground mb-2">Secret Key (if you can't scan)</p>
+                <code className="text-sm font-mono font-bold tracking-wider select-all break-all">
+                  {mfaSecret}
+                </code>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="mfa-code">Verification Code</Label>
+              <Input
+                id="mfa-code"
+                value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                placeholder="000000"
+                className="text-center text-2xl tracking-widest"
+                maxLength={6}
+              />
+              <p className="text-xs text-muted-foreground text-center">
+                Enter the 6-digit code from your app to verify setup.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsMFASetupOpen(false)}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleVerifyAndEnableMFA}
+              disabled={isSaving || mfaCode.length !== 6}
+              className="bg-indigo-600 hover:bg-indigo-700"
+            >
+              {isSaving ? 'Verifying...' : 'Verify & Enable'}
             </Button>
           </DialogFooter>
         </DialogContent>

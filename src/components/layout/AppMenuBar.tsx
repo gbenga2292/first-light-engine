@@ -30,7 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface AppMenuBarProps {
   onNewAsset?: () => void;
@@ -39,7 +39,7 @@ interface AppMenuBarProps {
   onOpenSettings?: () => void;
   canCreateAsset?: boolean;
   onMobileMenuClick?: () => void;
-  currentUser?: { role: string; name: string } | null;
+  currentUser?: { role: string; name: string; avatar?: string; id?: string; username?: string } | null;
 }
 
 export const AppMenuBar = ({
@@ -51,28 +51,29 @@ export const AppMenuBar = ({
   onMobileMenuClick,
   currentUser,
 }: AppMenuBarProps) => {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const [isMaximized, setIsMaximized] = useState(false);
   const [showAboutDialog, setShowAboutDialog] = useState(false);
   const [showShortcutsDialog, setShowShortcutsDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [isElectron, setIsElectron] = useState(false);
-  const [viewMode, setViewMode] = useState("view");
   const navigate = useNavigate();
-  // const { signOut } = useAuth(); // Assuming AuthContext provides signOut, but AppMenuBar is often used where context might not be fully available or props are used. 
-  // For now we will rely on navigation since we are inside a Router context if useNavigate works.
-  // Actually, AppMenuBar is used inside ProtectedRoute usually, so AuthContext should work.
-  // However, I'll stick to props or local state if I can't easily hook in without checking providers.
-  // Let's assume standard hooks are safe.
-
 
   useEffect(() => {
     // Check if running in Electron environment
-    setIsElectron(!!(window as any).electronAPI);
-  }, []);
+    const electron = !!(window as any).electronAPI;
+    setIsElectron(electron);
 
+    if (electron && (window as any).electronAPI?.window?.updateTitleBarOverlay) {
+      const isDark = resolvedTheme === "dark";
 
-
+      (window as any).electronAPI.window.updateTitleBarOverlay({
+        symbolColor: isDark ? '#ffffff' : '#000000',
+        color: '#00000000', // Transparent background
+        height: 30
+      });
+    }
+  }, [theme, resolvedTheme]);
 
   const handleMinimize = () => {
     if (window.electronAPI?.window?.minimize) {
@@ -83,8 +84,6 @@ export const AppMenuBar = ({
   const handleMaximize = () => {
     if (window.electronAPI?.window?.maximize) {
       window.electronAPI.window.maximize();
-      // We rely on the result or an event, but determining state locally for now
-      // Ideally we should listen to window events
       setIsMaximized(prev => !prev);
     }
   };
@@ -156,15 +155,11 @@ export const AppMenuBar = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onNewAsset, onExport, onOpenSettings, onRefresh, canCreateAsset, isElectron]);
 
-
-  /* Export Dialog State */
-  // Moved up
-
   if (!isElectron) return null;
 
   return (
     <>
-      <div className="flex items-center justify-between bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40 app-drag-region sticky top-0 z-50 h-[40px] select-none text-xs">
+      <div className="flex items-center justify-between bg-secondary/95 dark:bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-secondary/75 supports-[backdrop-filter]:dark:bg-background/60 border-b border-border/40 app-drag-region sticky top-0 z-50 h-[40px] select-none text-xs">
         {/* Left: Logo and Menu */}
         <div className="flex items-center app-no-drag pl-2 h-full">
           {onMobileMenuClick && (
@@ -254,9 +249,12 @@ export const AppMenuBar = ({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <div className="mr-1 flex items-center gap-2 px-2 py-1 hover:bg-accent/50 rounded-md cursor-pointer transition-colors max-w-[150px] h-7 outline-none">
-                <div className="h-4 w-4 rounded-full bg-gradient-to-tr from-primary to-primary-glow flex items-center justify-center text-[9px] text-white font-bold shadow-sm ring-1 ring-background">
-                  {currentUser?.name?.charAt(0) || 'U'}
-                </div>
+                <Avatar className="h-4 w-4">
+                  <AvatarImage src={currentUser?.avatar} alt={currentUser?.name} />
+                  <AvatarFallback className="text-[9px] bg-primary text-primary-foreground font-bold flex items-center justify-center w-full h-full">
+                    {currentUser?.name?.charAt(0) || 'U'}
+                  </AvatarFallback>
+                </Avatar>
                 <span className="text-[11px] font-medium truncate hidden md:block opacity-80">
                   {currentUser?.name || 'User'}
                 </span>
@@ -282,14 +280,12 @@ export const AppMenuBar = ({
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50" onClick={() => {
-                // Ideally use signOut() from context, but for now we might route to login or reload
                 navigate('/login');
               }}>
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
-
           </DropdownMenu>
 
           {/* Spacer for Native Window Controls (Desktop) */}
@@ -297,8 +293,6 @@ export const AppMenuBar = ({
             <div className="hidden md:block w-[138px] h-full app-no-drag" />
           )}
         </div>
-
-
       </div>
 
       {/* Export Options Dialog */}

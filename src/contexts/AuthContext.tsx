@@ -59,18 +59,20 @@ export interface User {
   lockedUntil?: string;
   created_at: string;
   updated_at: string;
+  mfa_enabled?: boolean;
 }
 interface AuthContextType {
   isAuthenticated: boolean;
   currentUser: User | null;
-  login: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  login: (username: string, password: string) => Promise<{ success: boolean; message?: string; mfaRequired?: boolean; userId?: string }>;
   logout: () => void;
+  verifyMFALogin: (userId: string, code: string) => Promise<{ success: boolean; message?: string }>;
   refreshCurrentUser: () => Promise<void>;
   hasPermission: (permission: string) => boolean;
   getUsers: () => Promise<User[]>;
   createUser: (userData: { name: string; username: string; password: string; role: UserRole; customRoleId?: string }) => Promise<{ success: boolean; message?: string }>;
   registerUser: (userData: { name: string; username: string; password: string; role: UserRole; displayUsername?: string }) => Promise<{ success: boolean; message?: string }>;
-  updateUser: (userId: string, userData: { name?: string; username?: string; role?: UserRole; customRoleId?: string; avatar?: string; avatarColor?: string; email?: string; bio?: string; phone?: string; password?: string; status?: 'active' | 'inactive' | 'pending_invite' }) => Promise<{ success: boolean; message?: string }>;
+  updateUser: (userId: string, userData: { name?: string; username?: string; role?: UserRole; customRoleId?: string; avatar?: string; avatarColor?: string; email?: string; bio?: string; phone?: string; password?: string; status?: 'active' | 'inactive' | 'pending_invite'; mfa_enabled?: boolean; mfa_secret?: string | null }) => Promise<{ success: boolean; message?: string }>;
   deleteUser: (userId: string) => Promise<{ success: boolean; message?: string }>;
   // New methods for enhanced features
   getLoginHistory: (userId: string) => Promise<LoginHistory[]>;
@@ -109,7 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   // Login: Uses Supabase PostgreSQL for all platforms (Web, Android, Electron Desktop)
-  const login = async (username: string, password: string): Promise<{ success: boolean; message?: string }> => {
+  const login = async (username: string, password: string): Promise<{ success: boolean; message?: string; mfaRequired?: boolean; userId?: string }> => {
     try {
       const result = await dataService.auth.login(username, password);
 
@@ -125,6 +127,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           details: `User ${result.user.username} logged in`
         });
         return { success: true };
+      }
+
+      if (result.mfaRequired) {
+        return { success: false, mfaRequired: true, userId: result.userId, message: 'MFA Required' };
       }
 
       // If dataService login fails, try hardcoded admin fallback (DEV ONLY)
@@ -174,6 +180,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
   }, [currentUser]);
+
+  const verifyMFALogin = async (userId: string, code: string): Promise<{ success: boolean; message?: string }> => {
+    try {
+      const result = await dataService.auth.verifyMFALogin(userId, code);
+      if (result.success && result.user) {
+        setCurrentUser(result.user);
+        setIsAuthenticated(true);
+        localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('currentUser', JSON.stringify(result.user));
+        // Activity log is handled in dataService
+        return { success: true };
+      }
+      return { success: false, message: result.message || 'Invalid code' };
+    } catch (error) {
+      return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  };
 
   const refreshCurrentUser = async () => {
     if (!currentUser?.id) return;
@@ -365,7 +388,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateUser = async (userId: string, userData: { name?: string; username?: string; role?: UserRole; password?: string; bio?: string; avatar?: string; avatarColor?: string; status?: 'active' | 'inactive' | 'pending_invite' }): Promise<{ success: boolean; message?: string }> => {
+  const updateUser = async (userId: string, userData: { name?: string; username?: string; role?: UserRole; password?: string; bio?: string; avatar?: string; avatarColor?: string; status?: 'active' | 'inactive' | 'pending_invite'; mfa_enabled?: boolean; mfa_secret?: string | null }): Promise<{ success: boolean; message?: string }> => {
     try {
       const result = await dataService.auth.updateUser(userId, userData as any);
       if (result.success) {
@@ -558,6 +581,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       currentUser,
       login,
       logout,
+      verifyMFALogin,
       refreshCurrentUser,
       hasPermission,
       getUsers,

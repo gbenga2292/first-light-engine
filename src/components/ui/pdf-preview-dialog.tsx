@@ -193,11 +193,14 @@ export const PDFPreviewDialog = ({
     // Desktop dialog view
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="!fixed !inset-0 !z-50 !w-screen !h-screen !max-w-none !p-0 !m-0 !gap-0 !rounded-none !border-none !flex !flex-col !bg-background !translate-x-0 !translate-y-0 !left-0 !top-0 shadow-none outline-none ring-0">
+            <DialogContent
+                showCloseLeft
+                className="!fixed !inset-0 !z-50 !w-screen !h-screen !max-w-none !p-0 !m-0 !gap-0 !rounded-none !border-none !flex !flex-col !bg-background !translate-x-0 !translate-y-0 !left-0 !top-0 shadow-none outline-none ring-0"
+            >
                 <DialogHeader className="px-6 pt-6 pb-4 border-b">
                     <div className="flex items-center justify-between">
-                        <DialogTitle>{title}</DialogTitle>
-                        <div className="flex gap-2">
+                        <DialogTitle className="ml-6">{title}</DialogTitle>
+                        <div className="flex gap-2 mr-8">
                             <Button onClick={handlePrint} variant="outline" size="sm" className="gap-2">
                                 <Printer className="h-4 w-4" />
                                 Print

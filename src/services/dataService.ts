@@ -21,6 +21,7 @@ import type {
     SiteTransaction,
     Waybill
 } from '@/types/asset';
+import { verifyToken } from '@/lib/totp'; // Import TOTP verifier
 import type { EquipmentLog } from '@/types/equipment';
 import type { ConsumableUsageLog } from '@/types/consumable';
 import type { MaintenanceLog } from '@/types/maintenance';
@@ -61,7 +62,7 @@ import type { SiteRequest } from '@/types/request';
 // ============================================================================
 
 export const authService = {
-    login: async (username: string, password: string): Promise<{ success: boolean; user?: User; message?: string }> => {
+    login: async (username: string, password: string): Promise<{ success: boolean; user?: User; message?: string; mfaRequired?: boolean; userId?: string }> => {
         try {
             // 1. First try username-based login (for both admin-created and self-registered users)
             // 1. First try username-based login (for both admin-created and self-registered users)
@@ -122,6 +123,10 @@ export const authService = {
                     created_at: data.created_at,
                     updated_at: data.updated_at
                 };
+
+                if (data.mfa_enabled) {
+                    return { success: false, mfaRequired: true, userId: data.id.toString() };
+                }
 
                 // Record login and update last active
                 try {
@@ -186,6 +191,10 @@ export const authService = {
                     updated_at: userData.updated_at
                 };
 
+                if (userData.mfa_enabled) {
+                    return { success: false, mfaRequired: true, userId: userData.id.toString() };
+                }
+
                 // Record login and update last active
                 try {
                     await authService.recordLogin(user.id, { loginType: 'password' });
@@ -198,6 +207,64 @@ export const authService = {
             }
 
             return { success: false, message: 'Invalid credentials' };
+        } catch (error) {
+            return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
+        }
+    },
+
+    verifyMFALogin: async (userId: string, code: string): Promise<{ success: boolean; user?: User; message?: string }> => {
+        try {
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', userId)
+                .single();
+
+            if (error || !data) {
+                return { success: false, message: 'User not found' };
+            }
+
+            if (!data.mfa_secret) {
+                return { success: false, message: 'MFA not set up for this user' };
+            }
+
+            const isValid = await verifyToken(code, data.mfa_secret);
+            if (!isValid) {
+                return { success: false, message: 'Invalid authentication code' };
+            }
+
+            // Fetch signature (reusing logic from login)
+            let signatureUrl: string | undefined;
+            try {
+                const sigResult = await authService.getSignature(data.id.toString());
+                if (sigResult.success && sigResult.url) {
+                    signatureUrl = sigResult.url;
+                }
+            } catch (e) {
+                console.warn('Failed to fetch signature during login', e);
+            }
+
+            const user: User = {
+                id: data.id.toString(),
+                username: data.username,
+                role: data.role as UserRole,
+                name: data.name,
+                email: data.email || undefined,
+                bio: data.bio || undefined,
+                avatar: data.avatar || undefined,
+                avatarColor: data.avatar_color || undefined,
+                status: data.status as any,
+                lastActive: data.last_active || undefined,
+                signatureUrl,
+                created_at: data.created_at,
+                updated_at: data.updated_at
+            };
+
+            // Record login
+            await authService.recordLogin(user.id, { loginType: 'mfa' });
+            await authService.updateLastActive(user.id);
+
+            return { success: true, user };
         } catch (error) {
             return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
         }
@@ -334,6 +401,8 @@ export const authService = {
         status?: string;
         avatar?: string;
         avatarColor?: string;
+        mfa_enabled?: boolean;
+        mfa_secret?: string | null;
     }): Promise<{ success: boolean; message?: string }> => {
         const updateData: any = {
             updated_at: new Date().toISOString()
@@ -347,6 +416,8 @@ export const authService = {
         if (userData.status) updateData.status = userData.status;
         if (userData.avatar) updateData.avatar = userData.avatar;
         if (userData.avatarColor) updateData.avatar_color = userData.avatarColor;
+        if (userData.mfa_enabled !== undefined) updateData.mfa_enabled = userData.mfa_enabled;
+        if (userData.mfa_secret !== undefined) updateData.mfa_secret = userData.mfa_secret;
 
         if (userData.password) {
             updateData.password_hash = await bcrypt.hash(userData.password, 10);
