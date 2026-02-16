@@ -121,7 +121,8 @@ export const authService = {
                     lastActive: data.last_active || undefined,
                     signatureUrl,
                     created_at: data.created_at,
-                    updated_at: data.updated_at
+                    updated_at: data.updated_at,
+                    preferences: data.preferences || undefined
                 };
 
                 if (data.mfa_enabled) {
@@ -188,7 +189,8 @@ export const authService = {
                     lastActive: userData.last_active || undefined,
                     signatureUrl,
                     created_at: userData.created_at,
-                    updated_at: userData.updated_at
+                    updated_at: userData.updated_at,
+                    preferences: userData.preferences || undefined
                 };
 
                 if (userData.mfa_enabled) {
@@ -257,7 +259,8 @@ export const authService = {
                 lastActive: data.last_active || undefined,
                 signatureUrl,
                 created_at: data.created_at,
-                updated_at: data.updated_at
+                updated_at: data.updated_at,
+                preferences: data.preferences || undefined
             };
 
             // Record login
@@ -289,7 +292,8 @@ export const authService = {
             status: user.status as any,
             lastActive: user.last_active || undefined,
             created_at: user.created_at,
-            updated_at: user.updated_at
+            updated_at: user.updated_at,
+            preferences: user.preferences || undefined
         }));
     },
 
@@ -403,6 +407,7 @@ export const authService = {
         avatarColor?: string;
         mfa_enabled?: boolean;
         mfa_secret?: string | null;
+        preferences?: any;
     }): Promise<{ success: boolean; message?: string }> => {
         const updateData: any = {
             updated_at: new Date().toISOString()
@@ -418,6 +423,7 @@ export const authService = {
         if (userData.avatarColor) updateData.avatar_color = userData.avatarColor;
         if (userData.mfa_enabled !== undefined) updateData.mfa_enabled = userData.mfa_enabled;
         if (userData.mfa_secret !== undefined) updateData.mfa_secret = userData.mfa_secret;
+        if (userData.preferences) updateData.preferences = userData.preferences;
 
         if (userData.password) {
             updateData.password_hash = await bcrypt.hash(userData.password, 10);

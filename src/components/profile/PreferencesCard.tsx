@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -6,15 +7,17 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Moon, Sun, Monitor, Bell, Mail } from 'lucide-react';
 import { toast } from 'sonner';
-
+import { sendNotification } from '@/utils/notifications';
 interface PreferencesCardProps {
   isLoading?: boolean;
 }
 
 export const PreferencesCard: React.FC<PreferencesCardProps> = ({ isLoading = false }) => {
+  const { currentUser, updateUser } = useAuth();
   const [theme, setThemeState] = useState<'light' | 'dark' | 'system'>(() => {
     return (localStorage.getItem('theme') as 'light' | 'dark' | 'system') || 'system';
   });
+
   const [preferences, setPreferences] = useState({
     emailNotifications: true,
     inAppNotifications: true,
@@ -22,6 +25,24 @@ export const PreferencesCard: React.FC<PreferencesCardProps> = ({ isLoading = fa
     waybillUpdates: true,
     weeklyReport: false,
   });
+
+  // Load preferences from currentUser
+  React.useEffect(() => {
+    if (currentUser?.preferences) {
+      setPreferences(prev => ({
+        ...prev,
+        ...currentUser.preferences
+      }));
+    } else {
+      // Try to load from legacy localStorage if DB is empty
+      const local = localStorage.getItem('user_preferences');
+      if (local) {
+        try {
+          setPreferences(JSON.parse(local));
+        } catch (e) { }
+      }
+    }
+  }, [currentUser]);
 
   const handleThemeChange = (value: string) => {
     setThemeState(value as 'light' | 'dark' | 'system');
@@ -42,12 +63,39 @@ export const PreferencesCard: React.FC<PreferencesCardProps> = ({ isLoading = fa
       }
     }
 
-    toast.success(`Theme changed to ${value}`);
+    sendNotification({ title: 'Theme Changed', body: `Theme changed to ${value}`, type: 'info' });
   };
 
   const handlePreferenceChange = (key: keyof typeof preferences, value: boolean) => {
     setPreferences(prev => ({ ...prev, [key]: value }));
-    toast.success('Preferences updated');
+    // Optimistic toast, or wait for save?
+    // The UI shows a "Save Preferences" button, so we just update state.
+  };
+
+  const savePreferences = async () => {
+    if (!currentUser) return;
+
+    try {
+      // Save to Local Storage (Backup/Fast Load)
+      localStorage.setItem('user_preferences', JSON.stringify(preferences));
+
+      // Save to Backend
+      const result = await updateUser(currentUser.id, {
+        preferences: preferences
+      });
+
+      if (result.success) {
+        sendNotification({
+          title: 'Preferences Saved',
+          body: 'Your notification preferences have been updated.',
+          type: 'success'
+        });
+      } else {
+        toast.error('Failed to save to profile: ' + result.message);
+      }
+    } catch (e) {
+      toast.error('Failed to save preferences');
+    }
   };
 
   const getThemeIcon = () => {
@@ -215,14 +263,7 @@ export const PreferencesCard: React.FC<PreferencesCardProps> = ({ isLoading = fa
         <Button
           className="w-full bg-green-600 hover:bg-green-700"
           disabled={isLoading}
-          onClick={() => {
-            try {
-              localStorage.setItem('user_preferences', JSON.stringify(preferences));
-              toast.success('Preferences saved');
-            } catch (e) {
-              toast.error('Failed to save preferences');
-            }
-          }}
+          onClick={savePreferences}
         >
           Save Preferences
         </Button>

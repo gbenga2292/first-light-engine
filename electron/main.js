@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu, Tray, nativeImage, Notification } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -7,6 +7,49 @@ const __dirname = path.dirname(__filename);
 
 let mainWindow;
 let splashWindow;
+let tray = null;
+let isQuitting = false;
+
+function createTray() {
+  const iconPath = process.env.NODE_ENV === 'development'
+    ? path.join(__dirname, '../public/favicon.ico')
+    : path.join(__dirname, '../dist/favicon.ico');
+
+  const icon = nativeImage.createFromPath(iconPath);
+  tray = new Tray(icon);
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Show App',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          if (mainWindow.isMinimized()) mainWindow.restore();
+          mainWindow.focus();
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  ]);
+
+  tray.setToolTip('DCEL Inventory');
+  tray.setContextMenu(contextMenu);
+
+  tray.on('double-click', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
 
 function createWindow() {
   // Create splash window
@@ -67,12 +110,22 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
+  // Handle Close Event (Minimize to Tray)
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+      return false;
+    }
+  });
+
   // When main window is ready to show, close splash and show main window
   mainWindow.once('ready-to-show', () => {
     if (splashWindow && !splashWindow.isDestroyed()) {
       splashWindow.destroy();
     }
     mainWindow.show();
+    createTray();
   });
 
   // Open external links in default browser
@@ -102,6 +155,7 @@ if (!gotTheLock) {
     // Someone tried to run a second instance, we should focus our window.
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
+      if (!mainWindow.isVisible()) mainWindow.show();
       mainWindow.focus();
 
       // On Windows, the deep link is in the commandLine array
@@ -118,6 +172,8 @@ if (!gotTheLock) {
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
         createWindow();
+      } else if (mainWindow) {
+        mainWindow.show();
       }
     });
 
@@ -139,19 +195,23 @@ if (!gotTheLock) {
     event.preventDefault();
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
+      if (!mainWindow.isVisible()) mainWindow.show();
       mainWindow.focus();
       mainWindow.webContents.send('deep-link', url);
     }
   });
 }
 
-// Global window-all-closed handler (moved to inside ready block or kept global? commonly global)
-// We need to keep it global but outside the lock check?
-// Actually if we don't get lock, we quit, so this is fine.
+// Global window-all-closed handler
 app.on('window-all-closed', () => {
+  // Do not quit on window all closed (keep query running in tray)
   if (process.platform !== 'darwin') {
-    app.quit();
+    // app.quit(); // We want to keep running in tray
   }
+});
+
+app.on('before-quit', () => {
+  isQuitting = true;
 });
 
 // IPC handler for simple window controls
@@ -173,3 +233,19 @@ ipcMain.handle('window:update-title-bar-overlay', (event, options) => {
     mainWindow.setTitleBarOverlay(options);
   }
 });
+
+// IPC handler for Native Notifications
+ipcMain.handle('show-notification', (event, { title, body }) => {
+  if (Notification.isSupported()) {
+    new Notification({
+      title: title || 'DCEL Inventory',
+      body: body || '',
+      icon: process.env.NODE_ENV === 'development'
+        ? path.join(__dirname, '../public/favicon.ico')
+        : path.join(__dirname, '../dist/favicon.ico')
+    }).show();
+    return true;
+  }
+  return false;
+});
+

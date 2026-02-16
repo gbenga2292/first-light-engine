@@ -10,5 +10,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
         toggleDevTools: () => ipcRenderer.invoke('window:toggleDevTools'),
         updateTitleBarOverlay: (options) => ipcRenderer.invoke('window:update-title-bar-overlay', options)
     },
-    onDeepLink: (callback) => ipcRenderer.on('deep-link', (event, url) => callback(url))
+    onDeepLink: (callback) => ipcRenderer.on('deep-link', (event, url) => callback(url)),
+    showNotification: (options) => ipcRenderer.invoke('show-notification', options)
 });

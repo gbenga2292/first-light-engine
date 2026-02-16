@@ -87,7 +87,10 @@ interface Window {
       close: () => Promise<void>;
       isMaximized: () => Promise<boolean>;
       toggleDevTools: () => Promise<void>;
+      updateTitleBarOverlay: (options: { color: string; symbolColor: string; height: number }) => Promise<void>;
     };
+    onDeepLink: (callback: (url: string) => void) => void;
+    showNotification: (options: { title: string; body: string }) => Promise<boolean>;
   };
   backupScheduler?: {
     getStatus: () => Promise<{
