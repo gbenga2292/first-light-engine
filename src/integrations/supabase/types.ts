@@ -522,6 +522,57 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          avatar: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          is_active: boolean | null
+          last_active_at: string | null
+          name: string
+          permissions: Json | null
+          phone: string | null
+          preferences: Json | null
+          role: string
+          signature: string | null
+          updated_at: string | null
+          username: string
+        }
+        Insert: {
+          avatar?: string | null
+          created_at?: string | null
+          email?: string | null
+          id: string
+          is_active?: boolean | null
+          last_active_at?: string | null
+          name: string
+          permissions?: Json | null
+          phone?: string | null
+          preferences?: Json | null
+          role: string
+          signature?: string | null
+          updated_at?: string | null
+          username: string
+        }
+        Update: {
+          avatar?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_active_at?: string | null
+          name?: string
+          permissions?: Json | null
+          phone?: string | null
+          preferences?: Json | null
+          role?: string
+          signature?: string | null
+          updated_at?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
       quick_checkouts: {
         Row: {
           asset_id: number
@@ -1105,6 +1156,9 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin: { Args: never; Returns: boolean }
+      is_manager_or_admin: { Args: never; Returns: boolean }
+      user_role: { Args: never; Returns: string }
     }
     Enums: {
       app_role:
