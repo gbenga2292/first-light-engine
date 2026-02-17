@@ -954,6 +954,7 @@ export type Database = {
           mfa_secret: string | null
           name: string
           password_hash: string
+          pin_hash: string | null
           role: string
           signature_path: string | null
           signature_removed_at: string | null
@@ -974,6 +975,7 @@ export type Database = {
           mfa_secret?: string | null
           name: string
           password_hash: string
+          pin_hash?: string | null
           role: string
           signature_path?: string | null
           signature_removed_at?: string | null
@@ -994,6 +996,7 @@ export type Database = {
           mfa_secret?: string | null
           name?: string
           password_hash?: string
+          pin_hash?: string | null
           role?: string
           signature_path?: string | null
           signature_removed_at?: string | null
