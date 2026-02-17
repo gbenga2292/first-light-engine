@@ -176,11 +176,19 @@ const Index = () => {
     refreshAllData();
   }, [refreshAllData]);
 
-  // Load assets from database
+  // Load ALL essential data in parallel for faster loading
   useEffect(() => {
-    (async () => {
+    const loadAllData = async () => {
       try {
-        const loadedAssets = await dataService.assets.getAssets();
+        // Load all data in parallel using Promise.all
+        const [loadedAssets, loadedWaybills, loadedConsumableLogs, loadedMaintenanceLogs] = await Promise.all([
+          dataService.assets.getAssets(),
+          dataService.waybills.getWaybills(),
+          dataService.consumableLogs.getConsumableLogs(),
+          dataService.maintenanceLogs.getMaintenanceLogs()
+        ]);
+
+        // Process assets
         const processedAssets = loadedAssets.map((item: any) => {
           const asset = {
             ...item,
@@ -193,11 +201,36 @@ const Index = () => {
         logger.info('Loaded assets from dataService', { data: { count: processedAssets.length } });
         setAssets(processedAssets);
         setIsAssetsLoaded(true);
+
+        // Process waybills
+        const processedWaybills = loadedWaybills.map((item: any) => ({
+          ...item,
+          issueDate: new Date(item.issueDate),
+          expectedReturnDate: item.expectedReturnDate ? new Date(item.expectedReturnDate) : undefined,
+          sentToSiteDate: item.sentToSiteDate ? new Date(item.sentToSiteDate) : undefined,
+          createdAt: new Date(item.createdAt),
+          updatedAt: new Date(item.updatedAt)
+        }));
+        logger.info("Loaded waybills from DB", { data: { count: processedWaybills.length } });
+        setWaybills(processedWaybills);
+        setIsWaybillsLoaded(true);
+
+        // Set logs
+        setConsumableLogs(loadedConsumableLogs);
+        setMaintenanceLogs(loadedMaintenanceLogs);
+        setIsLogsLoaded(true);
+
+        logger.info('All dashboard data loaded successfully');
       } catch (error) {
-        logger.error('Failed to load assets from database', error);
-        setIsAssetsLoaded(true); // Set to true even on error to prevent infinite loading
+        logger.error('Failed to load dashboard data', error);
+        // Set all to loaded even on error to prevent infinite loading
+        setIsAssetsLoaded(true);
+        setIsWaybillsLoaded(true);
+        setIsLogsLoaded(true);
       }
-    })();
+    };
+
+    loadAllData();
 
     // Listen for asset refresh events from bulk operations
     const handleRefreshAssets = (event: CustomEvent) => {
@@ -213,49 +246,9 @@ const Index = () => {
     };
   }, []);
 
-  // Load waybills from database
-  useEffect(() => {
-    (async () => {
-      try {
-        const loadedWaybills = await dataService.waybills.getWaybills();
-        logger.info("Loaded waybills from DB", { data: { count: loadedWaybills.length } });
-        setWaybills(loadedWaybills.map((item: any) => ({
-          ...item,
-          issueDate: new Date(item.issueDate),
-          expectedReturnDate: item.expectedReturnDate ? new Date(item.expectedReturnDate) : undefined,
-          sentToSiteDate: item.sentToSiteDate ? new Date(item.sentToSiteDate) : undefined,
-          createdAt: new Date(item.createdAt),
-          updatedAt: new Date(item.updatedAt)
-        })));
-        setIsWaybillsLoaded(true);
-      } catch (error) {
-        logger.error('Failed to load waybills from database', error);
-        setIsWaybillsLoaded(true); // Set to true even on error to prevent infinite loading
-      }
-    })();
-  }, []);
-
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [deletingAsset, setDeletingAsset] = useState<Asset | null>(null);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
-
-  // Load consumable and maintenance logs from database
-  useEffect(() => {
-    (async () => {
-      try {
-        const loadedConsumableLogs = await dataService.consumableLogs.getConsumableLogs();
-        setConsumableLogs(loadedConsumableLogs);
-
-        const loadedMaintenanceLogs = await dataService.maintenanceLogs.getMaintenanceLogs();
-        setMaintenanceLogs(loadedMaintenanceLogs);
-
-        setIsLogsLoaded(true);
-      } catch (error) {
-        logger.error('Failed to load logs', error);
-        setIsLogsLoaded(true); // Set to true even on error to prevent infinite loading
-      }
-    })();
-  }, []);
 
 
 
@@ -1945,18 +1938,6 @@ const Index = () => {
   const isAllDataLoaded = isAssetsLoaded && isWaybillsLoaded && isLogsLoaded;
 
   function renderContent() {
-    // Show loading screen while data is being fetched
-    if (activeTab === "dashboard" && !isAllDataLoaded) {
-      return (
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center space-y-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-            <p className="text-muted-foreground">Loading dashboard data...</p>
-          </div>
-        </div>
-      );
-    }
-
     switch (activeTab) {
       case "dashboard":
         return <Dashboard companySettings={companySettings} assets={assets} waybills={waybills} quickCheckouts={quickCheckouts} sites={sites} equipmentLogs={equipmentLogs} maintenanceLogs={maintenanceLogs} employees={employees} vehicles={vehicles} onQuickLogEquipment={async (log: EquipmentLog) => {

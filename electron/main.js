@@ -119,13 +119,37 @@ function createWindow() {
     }
   });
 
-  // When main window is ready to show, close splash and show main window
+  // When main window is ready to show, wait for data to load before closing splash
+  let isDataLoaded = false;
+  let isWindowReady = false;
+
   mainWindow.once('ready-to-show', () => {
-    if (splashWindow && !splashWindow.isDestroyed()) {
-      splashWindow.destroy();
+    isWindowReady = true;
+    // Only show if data is already loaded
+    if (isDataLoaded) {
+      if (splashWindow && !splashWindow.isDestroyed()) {
+        splashWindow.destroy();
+      }
+      mainWindow.show();
+      createTray();
     }
-    mainWindow.show();
-    createTray();
+  });
+
+  // Listen for data-loaded signal from React app
+  ipcMain.once('app-data-loaded', () => {
+    isDataLoaded = true;
+    // Only show if window is already ready
+    if (isWindowReady) {
+      if (splashWindow && !splashWindow.isDestroyed()) {
+        splashWindow.destroy();
+      }
+      if (mainWindow && !mainWindow.isVisible()) {
+        mainWindow.show();
+      }
+      if (!tray) {
+        createTray();
+      }
+    }
   });
 
   // Open external links in default browser
@@ -135,6 +159,11 @@ function createWindow() {
     }
     return { action: 'deny' };
   });
+}
+
+// Ignore certificate errors in development (for Supabase SSL issues)
+if (process.env.NODE_ENV === 'development') {
+  app.commandLine.appendSwitch('ignore-certificate-errors');
 }
 
 // Deep Linking Setup
