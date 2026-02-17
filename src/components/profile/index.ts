@@ -7,3 +7,4 @@ export { PreferencesCard } from './PreferencesCard';
 export { LoginHistoryCard } from './LoginHistoryCard';
 export { PermissionsCard } from './PermissionsCard';
 export { SignatureUpload } from './SignatureUpload';
+export { PinSetupCard } from './PinSetupCard';

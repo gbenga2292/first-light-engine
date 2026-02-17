@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { generateSecret, verifyToken, generateOtpAuthUrl } from '@/lib/totp';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
+import { PinSetupCard } from './PinSetupCard';
 import QRCode from 'qrcode';
 
 interface SecurityPanelProps {
@@ -181,6 +182,9 @@ export const SecurityPanel: React.FC<SecurityPanelProps> = ({ onPasswordChange, 
               </Button>
             </div>
           </div>
+
+          {/* PIN Lock Section */}
+          <PinSetupCard isLoading={isLoading} />
 
           {/* MFA Section */}
           <div className="flex items-center justify-between p-4 bg-indigo-500/5 rounded-lg border border-indigo-200/30 dark:border-indigo-800/30 gap-4">

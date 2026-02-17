@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { toast } from "sonner";
@@ -29,6 +29,8 @@ import ProfilePage from "./pages/ProfilePage";
 import { logger } from "./lib/logger";
 import { Capacitor } from '@capacitor/core';
 import { SplashScreenController } from "./components/SplashScreenController";
+import { PinLockScreen } from "./components/PinLockScreen";
+import { PinLockGuard } from "./components/PinLockGuard";
 
 
 const queryClient = new QueryClient({
@@ -182,40 +184,42 @@ const App = () => {
                   <AppDataProvider>
                     <SplashScreenController />
 
-                    <HashRouter>
-                      <Routes>
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/signup" element={<SignUp />} />
-                        <Route path="/forgot-password" element={<ForgotPassword />} />
-                        <Route path="/reset-password" element={<ResetPassword />} />
-                        <Route path="/" element={
-                          <ProtectedRoute>
-                            <Index />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/asset/:id/history" element={
-                          <ProtectedRoute>
-                            <RestockHistoryPage />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/asset/:id/description" element={
-                          <ProtectedRoute>
-                            <AssetDescriptionPage />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/performance-test" element={
-                          <ProtectedRoute>
-                            <PerformanceTestPage />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/profile" element={
-                          <ProtectedRoute>
-                            <ProfilePage />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="*" element={<NotFound />} />
-                      </Routes>
-                    </HashRouter>
+                    <PinLockGuard>
+                      <HashRouter>
+                        <Routes>
+                          <Route path="/login" element={<Login />} />
+                          <Route path="/signup" element={<SignUp />} />
+                          <Route path="/forgot-password" element={<ForgotPassword />} />
+                          <Route path="/reset-password" element={<ResetPassword />} />
+                          <Route path="/" element={
+                            <ProtectedRoute>
+                              <Index />
+                            </ProtectedRoute>
+                          } />
+                          <Route path="/asset/:id/history" element={
+                            <ProtectedRoute>
+                              <RestockHistoryPage />
+                            </ProtectedRoute>
+                          } />
+                          <Route path="/asset/:id/description" element={
+                            <ProtectedRoute>
+                              <AssetDescriptionPage />
+                            </ProtectedRoute>
+                          } />
+                          <Route path="/performance-test" element={
+                            <ProtectedRoute>
+                              <PerformanceTestPage />
+                            </ProtectedRoute>
+                          } />
+                          <Route path="/profile" element={
+                            <ProtectedRoute>
+                              <ProfilePage />
+                            </ProtectedRoute>
+                          } />
+                          <Route path="*" element={<NotFound />} />
+                        </Routes>
+                      </HashRouter>
+                    </PinLockGuard>
                   </AppDataProvider>
                 </TooltipProvider>
               </WaybillsProvider>
