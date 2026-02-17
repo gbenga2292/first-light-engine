@@ -2,21 +2,18 @@ import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Moon, Sun, Monitor, Bell, Mail } from 'lucide-react';
+import { Monitor, Bell, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { sendNotification } from '@/utils/notifications';
+import { ThemeSelector } from '@/components/ThemeSelector';
+
 interface PreferencesCardProps {
   isLoading?: boolean;
 }
 
 export const PreferencesCard: React.FC<PreferencesCardProps> = ({ isLoading = false }) => {
   const { currentUser, updateUser } = useAuth();
-  const [theme, setThemeState] = useState<'light' | 'dark' | 'system'>(() => {
-    return (localStorage.getItem('theme') as 'light' | 'dark' | 'system') || 'system';
-  });
 
   const [preferences, setPreferences] = useState({
     emailNotifications: true,
@@ -43,28 +40,6 @@ export const PreferencesCard: React.FC<PreferencesCardProps> = ({ isLoading = fa
       }
     }
   }, [currentUser]);
-
-  const handleThemeChange = (value: string) => {
-    setThemeState(value as 'light' | 'dark' | 'system');
-    localStorage.setItem('theme', value);
-
-    // Apply theme to document
-    const htmlElement = document.documentElement;
-    if (value === 'dark') {
-      htmlElement.classList.add('dark');
-    } else if (value === 'light') {
-      htmlElement.classList.remove('dark');
-    } else {
-      // System theme
-      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        htmlElement.classList.add('dark');
-      } else {
-        htmlElement.classList.remove('dark');
-      }
-    }
-
-    sendNotification({ title: 'Theme Changed', body: `Theme changed to ${value}`, type: 'info' });
-  };
 
   const handlePreferenceChange = (key: keyof typeof preferences, value: boolean) => {
     setPreferences(prev => ({ ...prev, [key]: value }));
@@ -98,17 +73,6 @@ export const PreferencesCard: React.FC<PreferencesCardProps> = ({ isLoading = fa
     }
   };
 
-  const getThemeIcon = () => {
-    switch (theme) {
-      case 'dark':
-        return <Moon className="h-4 w-4" />;
-      case 'light':
-        return <Sun className="h-4 w-4" />;
-      default:
-        return <Monitor className="h-4 w-4" />;
-    }
-  };
-
   return (
     <Card className="relative overflow-hidden backdrop-blur-sm border-white/10 hover:shadow-lg transition-all duration-300">
       {/* Gradient Background */}
@@ -129,43 +93,8 @@ export const PreferencesCard: React.FC<PreferencesCardProps> = ({ isLoading = fa
         <div className="space-y-4 pb-6 border-b border-border/50">
           <div>
             <h4 className="font-semibold mb-3">Appearance</h4>
-            <div className="space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-background/40 rounded-lg border border-border/50 gap-4">
-                <div className="flex items-center gap-3">
-                  {getThemeIcon()}
-                  <div>
-                    <p className="text-sm font-medium">Theme</p>
-                    <p className="text-xs text-muted-foreground">
-                      Choose your preferred theme
-                    </p>
-                  </div>
-                </div>
-                <Select value={theme} onValueChange={handleThemeChange} disabled={isLoading}>
-                  <SelectTrigger className="w-full sm:w-[150px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="light">
-                      <div className="flex items-center gap-2">
-                        <Sun className="h-4 w-4" />
-                        Light
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="dark">
-                      <div className="flex items-center gap-2">
-                        <Moon className="h-4 w-4" />
-                        Dark
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="system">
-                      <div className="flex items-center gap-2">
-                        <Monitor className="h-4 w-4" />
-                        System
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="p-3 bg-background/40 rounded-lg border border-border/50">
+              <ThemeSelector />
             </div>
           </div>
         </div>

@@ -65,11 +65,16 @@ export const AppMenuBar = ({
     setIsElectron(electron);
 
     if (electron && (window as any).electronAPI?.window?.updateTitleBarOverlay) {
-      const isDark = resolvedTheme === "dark";
+      // Determine if the current theme is light-based or dark-based
+      const lightThemes = ['light', 'sepia', 'monochrome', 'sky'];
+      // resolvedTheme might be 'dark' or 'light' for system, but for explicit themes it is the theme name
+      const currentTheme = theme || resolvedTheme || 'light';
+
+      const isLightTheme = lightThemes.includes(currentTheme) || (currentTheme === 'system' && resolvedTheme === 'light');
 
       (window as any).electronAPI.window.updateTitleBarOverlay({
-        symbolColor: isDark ? '#ffffff' : '#000000',
-        color: '#00000000', // Transparent background
+        symbolColor: isLightTheme ? '#000000' : '#ffffff',
+        color: '#00000000', // Transparent background to let the theme background show through
         height: 30
       });
     }
@@ -159,7 +164,7 @@ export const AppMenuBar = ({
 
   return (
     <>
-      <div className="flex items-center justify-between bg-secondary/95 dark:bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-secondary/75 supports-[backdrop-filter]:dark:bg-background/60 border-b border-border/40 app-drag-region sticky top-0 z-50 h-[40px] select-none text-xs">
+      <div className="flex items-center justify-between bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80 border-b border-border/40 app-drag-region sticky top-0 z-50 h-[40px] select-none text-xs transition-colors duration-300">
         {/* Left: Logo and Menu */}
         <div className="flex items-center app-no-drag pl-2 h-full">
           {onMobileMenuClick && (

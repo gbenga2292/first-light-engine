@@ -172,7 +172,27 @@ const App = () => {
           buster: 'v1',
         }}
       >
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          themes={[
+            'light',
+            'dark',
+            'high-contrast',
+            'sepia',
+            'ocean',
+            'forest',
+            'purple',
+            'sunset',
+            'monochrome',
+            'amoled',
+            'cyberpunk',
+            'coffee',
+            'matrix',
+            'sky'
+          ]}
+        >
           <AuthProvider>
             <AssetsProvider>
               <WaybillsProvider>

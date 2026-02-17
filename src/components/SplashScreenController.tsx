@@ -74,7 +74,15 @@ export const SplashScreenController = () => {
         };
 
         checkAndHideSplash();
+
+        // Safety timeout to ensure splash is hidden even if data loading hangs
+        const timeoutId = setTimeout(() => {
+            checkAndHideSplash();
+        }, MAX_SPLASH_DURATION);
+
+        return () => clearTimeout(timeoutId);
     }, [isAssetsLoading, isWaybillsLoading, isAppDataLoading, isDashboardDataLoaded]);
+
 
     return null;
 };
