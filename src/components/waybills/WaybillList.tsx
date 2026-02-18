@@ -65,7 +65,8 @@ export const WaybillList = ({ waybills, sites, onViewWaybill, onEditWaybill, onI
 
   const getSiteName = (siteId: string) => {
     const site = sites.find(s => String(s.id) === String(siteId));
-    return site ? site.name : 'Unknown Site';
+    if (!site) return 'Unknown Site';
+    return site.clientName ? `${site.name} (${site.clientName})` : site.name;
   };
 
   const getFrom = (waybill: Waybill) => {

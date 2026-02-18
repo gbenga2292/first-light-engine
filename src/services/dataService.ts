@@ -1548,6 +1548,7 @@ export const dataService = {
                 'equipment_logs',
                 'maintenance_logs',
                 'metrics_snapshots',
+                'site_requests',
                 'site_transactions',
                 'quick_checkouts',
                 'waybills',

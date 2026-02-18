@@ -1,12 +1,13 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Waybill, CompanySettings, Site } from "@/types/asset";
+import { Waybill, CompanySettings, Site, Vehicle } from "@/types/asset";
 import { logger } from "@/lib/logger";
 
 interface PDFGenerationOptions {
   waybill: Waybill;
   companySettings?: CompanySettings;
   sites: Site[];
+  vehicles?: Vehicle[];
   type: 'waybill' | 'return';
   signatureUrl?: string;
   signatureName?: string;
@@ -43,7 +44,7 @@ const loadImage = (src: string): Promise<HTMLImageElement> => {
   });
 };
 
-export const generateProfessionalPDF = async ({ waybill, companySettings, sites, type, signatureUrl, signatureName }: PDFGenerationOptions) => {
+export const generateProfessionalPDF = async ({ waybill, companySettings, sites, vehicles, type, signatureUrl, signatureName }: PDFGenerationOptions) => {
   const pdf = new jsPDF('p', 'mm', 'a4');
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
@@ -56,7 +57,9 @@ export const generateProfessionalPDF = async ({ waybill, companySettings, sites,
 
   const site = sites.find(s => s.id === waybill.siteId);
   const fromLocation = 'DCEL Warehouse';
-  const toLocation = site?.name || 'Client Site';
+  const toLocation = site
+    ? (site.clientName ? `${site.name} (${site.clientName})` : site.name)
+    : 'Client Site';
 
   // Merge provided companySettings with defaults, only using non-empty values
   const effectiveCompanySettings: CompanySettings = {
@@ -157,7 +160,12 @@ export const generateProfessionalPDF = async ({ waybill, companySettings, sites,
 
     // Vehicle (left-aligned, bold)
     if (waybill.vehicle) {
-      pdf.text(`Vehicle: ${waybill.vehicle}`, 20, headerY);
+      const vehicleObj = vehicles?.find(v => v.name === waybill.vehicle);
+      const regNum = vehicleObj?.registration_number;
+      const vehicleText = regNum
+        ? `Vehicle: ${waybill.vehicle} (${regNum})`
+        : `Vehicle: ${waybill.vehicle}`;
+      pdf.text(vehicleText, 20, headerY);
       headerY += 8;
     }
 

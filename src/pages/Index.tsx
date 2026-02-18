@@ -45,6 +45,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SitesPage } from "@/components/sites/SitesPage";
+import { SiteInventoryPage } from "@/components/sites/SiteInventoryPage";
+
 import { MachinesSection } from "@/components/sites/MachinesSection";
 import { ConsumablesSection } from "@/components/sites/ConsumablesSection";
 import { SiteAnalyticsPage } from "@/pages/SiteAnalyticsPage";
@@ -2655,223 +2657,63 @@ const Index = () => {
         );
       case "site-inventory":
         return selectedSiteForInventory ? (
-          <div className="space-y-6 animate-fade-in">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent flex items-center gap-2">
-                  <Package className="h-6 w-6 sm:h-8 sm:w-8" />
-                  {selectedSiteForInventory.name} - Materials and Waybills
-                </h1>
-                <p className="text-sm sm:text-base text-muted-foreground mt-2">
-                  View all materials, equipment, and waybills for this site
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setActiveTab('sites');
-                  setSelectedSiteForInventory(null);
-                }}
-              >
-                Back to Sites
-              </Button>
-            </div>
-
-            <div className="space-y-6">
-              {/* Materials List */}
-              <Collapsible defaultOpen={false} className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Package className="h-5 w-5" />
-                    <h3 className="text-lg font-semibold">Materials at Site</h3>
-                  </div>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="sm">
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </CollapsibleTrigger>
-                </div>
-
-                <CollapsibleContent className="space-y-2">
-                  {(() => {
-                    const materialsAtSite = getSiteInventory(selectedSiteForInventory.id);
-                    return materialsAtSite.length === 0 ? (
-                      <p className="text-muted-foreground">No materials currently at this site.</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {materialsAtSite.map((item) => (
-                          <div key={item.assetId} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <p className="font-medium">{item.itemName}</p>
-                              {item.itemType && (
-                                <span className="text-sm text-muted-foreground">• {item.itemType}</span>
-                              )}
-                            </div>
-                            <div className="text-right">
-                              <p className={`font-semibold ${item.quantity === 0 ? 'text-destructive' : 'text-foreground'}`}>
-                                {item.quantity} {item.unit}
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Updated: {new Date(item.lastUpdated).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </CollapsibleContent>
-              </Collapsible>
-
-              {/* Machines Section */}
-              <MachinesSection
-                site={selectedSiteForInventory}
-                assets={assets}
-                equipmentLogs={equipmentLogs}
-                employees={employees}
-                waybills={waybills}
-                companySettings={companySettings}
-                onAddEquipmentLog={async (log: EquipmentLog) => {
-                  try {
-                    await dataService.equipmentLogs.createEquipmentLog(log);
-                    const logs = await dataService.equipmentLogs.getEquipmentLogs();
-                    setEquipmentLogs(logs);
-                  } catch (error) {
-                    logger.error('Failed to save equipment log', error);
-                  }
-                }}
-                onUpdateEquipmentLog={async (log: EquipmentLog) => {
-                  try {
-                    await dataService.equipmentLogs.updateEquipmentLog(Number(log.id), log);
-                    const logs = await dataService.equipmentLogs.getEquipmentLogs();
-                    setEquipmentLogs(logs);
-                  } catch (error) {
-                    logger.error('Failed to update equipment log', error);
-                  }
-                }}
-                onViewAnalytics={() => handleViewAnalytics(selectedSiteForInventory, 'equipment')}
-                onViewAssetDetails={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset)}
-                onViewAssetHistory={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset, 'history')}
-                onViewAssetAnalytics={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset, 'analytics')}
-              />
-
-              {/* Consumables Section */}
-              <ConsumablesSection
-                site={selectedSiteForInventory}
-                assets={assets}
-                employees={employees}
-                waybills={waybills}
-                consumableLogs={consumableLogs}
-                onAddConsumableLog={async (log: ConsumableUsageLog) => {
-                  try {
-                    await dataService.consumableLogs.createConsumableLog(log);
-                    const logs = await dataService.consumableLogs.getConsumableLogs();
-                    setConsumableLogs(logs);
-                  } catch (error) {
-                    logger.error('Failed to save consumable log', error);
-                  }
-                }}
-                onUpdateConsumableLog={async (log: ConsumableUsageLog) => {
-                  try {
-                    await dataService.consumableLogs.updateConsumableLog(log.id, log);
-                    const logs = await dataService.consumableLogs.getConsumableLogs();
-                    setConsumableLogs(logs);
-                  } catch (error) {
-                    logger.error('Failed to update consumable log', error);
-                  }
-                }}
-                onViewAnalytics={() => handleViewAnalytics(selectedSiteForInventory, 'consumables')}
-                onViewAssetDetails={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset)}
-                onViewAssetHistory={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset, 'history')}
-                onViewAssetAnalytics={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset, 'analytics')}
-              />
-
-              {/* Waybills List */}
-              <Collapsible defaultOpen={false} className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    <h3 className="text-lg font-semibold">Waybills for Site</h3>
-                  </div>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="sm">
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </CollapsibleTrigger>
-                </div>
-
-                <CollapsibleContent className="space-y-2">
-                  {waybills.filter(waybill => String(waybill.siteId) === String(selectedSiteForInventory.id)).length === 0 ? (
-                    <p className="text-muted-foreground">No waybills for this site.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {waybills.filter(waybill => String(waybill.siteId) === String(selectedSiteForInventory.id)).map((waybill) => {
-                        let badgeVariant: "default" | "secondary" | "outline" = 'outline';
-                        if (waybill.status === 'outstanding') {
-                          badgeVariant = 'default';
-                        } else if (waybill.status === 'sent_to_site' || waybill.status === 'partial_returned') {
-                          badgeVariant = 'secondary';
-                        } else if (waybill.status === 'return_completed') {
-                          badgeVariant = 'default';
-                        }
-                        return (
-                          <div key={waybill.id} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
-                            <div>
-                              <p className="font-medium">{waybill.id}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {waybill.driverName} • {waybill.items.length} items • {waybill.status}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant={badgeVariant}>
-                                {waybill.status.replace('_', ' ')}
-                              </Badge>
-                              <Button
-                                onClick={() => handleViewWaybill(waybill)}
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CollapsibleContent>
-              </Collapsible>
-
-              {/* Actions */}
-              <div className={`flex gap-3 pt-4 ${isMobile ? 'flex-col' : ''}`}>
-                <Button onClick={() => {
-                  setSelectedSiteForReturnWaybill(selectedSiteForInventory);
-                  setActiveTab('create-return-waybill');
-                }} className="flex-1">
-                  <FileText className="h-4 w-4 mr-2" />
-                  Create Return Waybill
-                </Button>
-                <Button
-                  onClick={() => handleShowTransactions(selectedSiteForInventory)}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  <Activity className="h-4 w-4 mr-2" />
-                  View Transactions
-                </Button>
-                <Button
-                  onClick={() => handleGenerateReport(selectedSiteForInventory)}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Generate Report
-                </Button>
-              </div>
-            </div>
-          </div>
+          <SiteInventoryPage
+            site={selectedSiteForInventory}
+            assets={assets}
+            waybills={waybills}
+            equipmentLogs={equipmentLogs}
+            consumableLogs={consumableLogs}
+            employees={employees}
+            companySettings={companySettings}
+            getSiteInventory={getSiteInventory}
+            isMobile={isMobile}
+            onBack={() => {
+              setActiveTab('sites');
+              setSelectedSiteForInventory(null);
+            }}
+            onCreateReturnWaybill={() => {
+              setSelectedSiteForReturnWaybill(selectedSiteForInventory);
+              setActiveTab('create-return-waybill');
+            }}
+            onShowTransactions={() => handleShowTransactions(selectedSiteForInventory)}
+            onGenerateReport={() => handleGenerateReport(selectedSiteForInventory)}
+            onViewWaybill={handleViewWaybill}
+            onAddEquipmentLog={async (log: EquipmentLog) => {
+              try {
+                await dataService.equipmentLogs.createEquipmentLog(log);
+                const logs = await dataService.equipmentLogs.getEquipmentLogs();
+                setEquipmentLogs(logs);
+              } catch (error) { logger.error('Failed to save equipment log', error); }
+            }}
+            onUpdateEquipmentLog={async (log: EquipmentLog) => {
+              try {
+                await dataService.equipmentLogs.updateEquipmentLog(Number(log.id), log);
+                const logs = await dataService.equipmentLogs.getEquipmentLogs();
+                setEquipmentLogs(logs);
+              } catch (error) { logger.error('Failed to update equipment log', error); }
+            }}
+            onAddConsumableLog={async (log: ConsumableUsageLog) => {
+              try {
+                await dataService.consumableLogs.createConsumableLog(log);
+                const logs = await dataService.consumableLogs.getConsumableLogs();
+                setConsumableLogs(logs);
+              } catch (error) { logger.error('Failed to save consumable log', error); }
+            }}
+            onUpdateConsumableLog={async (log: ConsumableUsageLog) => {
+              try {
+                await dataService.consumableLogs.updateConsumableLog(log.id, log);
+                const logs = await dataService.consumableLogs.getConsumableLogs();
+                setConsumableLogs(logs);
+              } catch (error) { logger.error('Failed to update consumable log', error); }
+            }}
+            onViewAnalyticsEquipment={() => handleViewAnalytics(selectedSiteForInventory, 'equipment')}
+            onViewAnalyticsConsumables={() => handleViewAnalytics(selectedSiteForInventory, 'consumables')}
+            onViewAssetDetails={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset)}
+            onViewAssetHistory={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset, 'history')}
+            onViewAssetAnalytics={(asset) => handleViewAssetDetails(selectedSiteForInventory, asset, 'analytics')}
+          />
         ) : null;
+
       case 'site-analytics':
         return selectedSiteForAnalytics ? (
           <SiteAnalyticsPage
@@ -3614,6 +3456,7 @@ const Index = () => {
                 <WaybillDocument
                   waybill={showWaybillDocument}
                   sites={sites}
+                  vehicles={vehicles}
                   companySettings={companySettings}
                   onClose={() => setShowWaybillDocument(null)}
                 />

@@ -10,9 +10,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Vehicle } from '@/types/asset';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Search, Car, Edit, Trash2, BarChart3, Save } from 'lucide-react';
+import { Search, Car, Edit, Trash2, BarChart3, Save, Upload } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { logActivity } from '@/utils/activityLogger';
+import { BulkImportDialog } from './BulkImportDialog';
+import { dataService } from '@/services/dataService';
 
 export interface EnhancedVehicleManagementProps {
   vehicles: Vehicle[];
@@ -45,6 +47,7 @@ export const EnhancedVehicleManagement: React.FC<EnhancedVehicleManagementProps>
   const [delistDate, setDelistDate] = useState('');
   const [isDelistDialogOpen, setIsDelistDialogOpen] = useState(false);
   const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
 
   // Filtered vehicles
   const filteredVehicles = useMemo(() => {
@@ -72,7 +75,7 @@ export const EnhancedVehicleManagement: React.FC<EnhancedVehicleManagementProps>
     setSelectedIds(newSelected);
   };
 
-  const handleAddVehicle = () => {
+  const handleAddVehicle = async () => {
     if (!newName.trim()) {
       toast({
         title: 'Validation Error',
@@ -82,29 +85,29 @@ export const EnhancedVehicleManagement: React.FC<EnhancedVehicleManagementProps>
       return;
     }
 
-    const newVehicle: Vehicle = {
-      id: Date.now().toString(),
-      name: newName.trim(),
-      registration_number: newPlate.trim() || undefined,
-      status: 'active',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+    try {
+      const saved = await dataService.vehicles.createVehicle({
+        name: newName.trim(),
+        registration_number: newPlate.trim() || undefined,
+        status: 'active',
+      });
 
-    const updated = [...vehicles, newVehicle];
-    onVehiclesChange(updated);
-    toast({
-      title: 'Success',
-      description: 'Vehicle added successfully'
-    });
-    setNewName('');
-    setNewPlate('');
-    setIsAddDialogOpen(false);
-    logActivity({
-      action: 'create',
-      entity: 'vehicle',
-      details: `Added vehicle ${newName}`
-    });
+      const formatted: Vehicle = {
+        ...saved,
+        createdAt: new Date(saved.createdAt),
+        updatedAt: new Date(saved.updatedAt),
+      };
+
+      onVehiclesChange([...vehicles, formatted]);
+      toast({ title: 'Success', description: 'Vehicle added successfully' });
+      setNewName('');
+      setNewPlate('');
+      setIsAddDialogOpen(false);
+      logActivity({ action: 'create', entity: 'vehicle', details: `Added vehicle ${newName}` });
+    } catch (err) {
+      console.error('Failed to add vehicle', err);
+      toast({ title: 'Error', description: 'Failed to save vehicle to database', variant: 'destructive' });
+    }
   };
 
   const handleEditVehicle = (vehicleId: string) => {
@@ -116,7 +119,7 @@ export const EnhancedVehicleManagement: React.FC<EnhancedVehicleManagementProps>
     }
   };
 
-  const handleSaveVehicle = () => {
+  const handleSaveVehicle = async () => {
     if (!editName.trim()) {
       toast({
         title: 'Validation Error',
@@ -126,46 +129,52 @@ export const EnhancedVehicleManagement: React.FC<EnhancedVehicleManagementProps>
       return;
     }
 
-    const updated = vehicles.map(v =>
-      v.id === editingId
-        ? { ...v, name: editName, registration_number: editPlate || undefined, updatedAt: new Date() }
-        : v
-    );
-    onVehiclesChange(updated);
-    toast({
-      title: 'Success',
-      description: 'Vehicle updated successfully'
-    });
-    setEditingId(null);
-    setIsAddDialogOpen(false);
-    logActivity({
-      action: 'update',
-      entity: 'vehicle',
-      details: `Updated vehicle ${editName}`
-    });
+    try {
+      await dataService.vehicles.updateVehicle(editingId!, {
+        name: editName,
+        registration_number: editPlate || undefined,
+      });
+
+      const updated = vehicles.map(v =>
+        v.id === editingId
+          ? { ...v, name: editName, registration_number: editPlate || undefined, updatedAt: new Date() }
+          : v
+      );
+      onVehiclesChange(updated);
+      toast({ title: 'Success', description: 'Vehicle updated successfully' });
+      setEditingId(null);
+      setIsAddDialogOpen(false);
+      logActivity({ action: 'update', entity: 'vehicle', details: `Updated vehicle ${editName}` });
+    } catch (err) {
+      console.error('Failed to update vehicle', err);
+      toast({ title: 'Error', description: 'Failed to update vehicle in database', variant: 'destructive' });
+    }
   };
 
-  const handleDelistVehicle = () => {
+  const handleDelistVehicle = async () => {
     if (!vehicleToDelete || !delistDate) return;
 
-    const updated = vehicles.map(v =>
-      v.id === vehicleToDelete.id
-        ? { ...v, status: 'inactive' as const, delistedDate: new Date(delistDate), updatedAt: new Date() }
-        : v
-    );
-    onVehiclesChange(updated);
-    toast({
-      title: 'Success',
-      description: 'Vehicle delisted successfully'
-    });
-    setIsDelistDialogOpen(false);
-    setVehicleToDelete(null);
-    setDelistDate('');
-    logActivity({
-      action: 'update',
-      entity: 'vehicle',
-      details: `Delisted vehicle ${vehicleToDelete.name}`
-    });
+    try {
+      await dataService.vehicles.updateVehicle(vehicleToDelete.id, {
+        status: 'inactive',
+        delistedDate: new Date(delistDate),
+      });
+
+      const updated = vehicles.map(v =>
+        v.id === vehicleToDelete.id
+          ? { ...v, status: 'inactive' as const, delistedDate: new Date(delistDate), updatedAt: new Date() }
+          : v
+      );
+      onVehiclesChange(updated);
+      toast({ title: 'Success', description: 'Vehicle delisted successfully' });
+      setIsDelistDialogOpen(false);
+      setVehicleToDelete(null);
+      setDelistDate('');
+      logActivity({ action: 'update', entity: 'vehicle', details: `Delisted vehicle ${vehicleToDelete.name}` });
+    } catch (err) {
+      console.error('Failed to delist vehicle', err);
+      toast({ title: 'Error', description: 'Failed to update vehicle in database', variant: 'destructive' });
+    }
   };
 
   const handleCancelEdit = () => {
@@ -183,6 +192,52 @@ export const EnhancedVehicleManagement: React.FC<EnhancedVehicleManagementProps>
     return '🚙';
   };
 
+  const VEHICLE_COLUMNS = [
+    { key: 'name', label: 'Vehicle Name', required: true, aliases: ['name', 'vehicle', 'description'] },
+    { key: 'registration_number', label: 'Registration Number', required: false, aliases: ['plate', 'reg', 'plate number', 'registration'] },
+  ];
+
+  const handleBulkImport = async (importedRows: Record<string, string>[]) => {
+    const saved: Vehicle[] = [];
+    let failed = 0;
+
+    for (const row of importedRows) {
+      try {
+        const result = await dataService.vehicles.createVehicle({
+          name: row.name,
+          registration_number: row.registration_number || undefined,
+          status: 'active',
+        });
+        saved.push({
+          ...result,
+          createdAt: new Date(result.createdAt),
+          updatedAt: new Date(result.updatedAt),
+        });
+      } catch (err) {
+        console.error('Failed to import vehicle row:', row, err);
+        failed++;
+      }
+    }
+
+    if (saved.length > 0) {
+      onVehiclesChange([...vehicles, ...saved]);
+    }
+
+    toast({
+      title: failed === 0 ? 'Import Successful' : 'Import Completed with Errors',
+      description: `${saved.length} vehicle${saved.length !== 1 ? 's' : ''} imported${failed > 0 ? `, ${failed} failed` : ''}.`,
+      variant: failed > 0 && saved.length === 0 ? 'destructive' : 'default',
+    });
+
+    if (saved.length > 0) {
+      logActivity({
+        action: 'create',
+        entity: 'vehicle',
+        details: `Bulk imported ${saved.length} vehicles via Excel`,
+      });
+    }
+  };
+
   return (
     <div className="space-y-4 md:space-y-6 mt-4">
       {/* Header */}
@@ -194,6 +249,15 @@ export const EnhancedVehicleManagement: React.FC<EnhancedVehicleManagementProps>
               Vehicle Management
             </CardTitle>
             <div className="flex gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                onClick={() => setIsImportDialogOpen(true)}
+                size={isMobile ? "sm" : "default"}
+                className="gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                {!isMobile && 'Import Excel'}
+              </Button>
               {hasPermission('write_vehicles') && (
                 <Button onClick={() => {
                   handleCancelEdit();
@@ -508,6 +572,17 @@ export const EnhancedVehicleManagement: React.FC<EnhancedVehicleManagementProps>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Import Dialog */}
+      <BulkImportDialog
+        open={isImportDialogOpen}
+        onOpenChange={setIsImportDialogOpen}
+        title="Import Vehicles from Excel"
+        description="Upload a spreadsheet with vehicle data. Download the template to see the expected format."
+        columns={VEHICLE_COLUMNS}
+        onImport={handleBulkImport}
+        templateFileName="vehicles_template.xlsx"
+      />
     </div>
   );
 };

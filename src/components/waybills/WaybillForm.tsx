@@ -271,7 +271,7 @@ export const WaybillForm = ({ assets, sites, employees, vehicles, onCreateWaybil
                     <SelectContent>
                       {sites.map((site) => (
                         <SelectItem key={site.id} value={String(site.id)}>
-                          {site.name}
+                          {site.name}{site.clientName ? ` (${site.clientName})` : ''}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -320,11 +320,7 @@ export const WaybillForm = ({ assets, sites, employees, vehicles, onCreateWaybil
                       ))}
                     </SelectContent>
                   </Select>
-                  {employees.filter(emp => emp.role === 'driver').length === 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      No drivers available. Please add drivers in Company Settings.
-                    </p>
-                  )}
+
                 </div>
 
                 <div className="space-y-2">

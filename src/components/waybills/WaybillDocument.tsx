@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Waybill, Site, CompanySettings } from "@/types/asset";
+import { Waybill, Site, CompanySettings, Vehicle } from "@/types/asset";
 import { generateProfessionalPDF } from "@/utils/professionalPDFGenerator";
 import { FileText, Printer, Calendar, User, Truck, MapPin, Share2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,11 +16,12 @@ import { useState } from "react";
 interface WaybillDocumentProps {
   waybill: Waybill;
   sites: Site[];
+  vehicles?: Vehicle[];
   companySettings?: CompanySettings;
   onClose: () => void;
 }
 
-export const WaybillDocument = ({ waybill, sites, companySettings, onClose }: WaybillDocumentProps) => {
+export const WaybillDocument = ({ waybill, sites, vehicles, companySettings, onClose }: WaybillDocumentProps) => {
   const { hasPermission } = useAuth();
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -34,6 +35,7 @@ export const WaybillDocument = ({ waybill, sites, companySettings, onClose }: Wa
         waybill,
         companySettings,
         sites,
+        vehicles,
         type: waybill.type,
         signatureUrl: waybill.signatureUrl,
         signatureName: waybill.signatureName
@@ -90,6 +92,7 @@ export const WaybillDocument = ({ waybill, sites, companySettings, onClose }: Wa
         waybill,
         companySettings,
         sites,
+        vehicles,
         type: waybill.type,
         signatureUrl: waybill.signatureUrl,
         signatureName: waybill.signatureName
@@ -135,6 +138,7 @@ export const WaybillDocument = ({ waybill, sites, companySettings, onClose }: Wa
         waybill,
         companySettings,
         sites,
+        vehicles,
         type: waybill.type,
         signatureUrl: waybill.signatureUrl,
         signatureName: waybill.signatureName
@@ -166,7 +170,10 @@ export const WaybillDocument = ({ waybill, sites, companySettings, onClose }: Wa
     }
   };
 
-  const siteName = sites.find(site => site.id === waybill.siteId)?.name || 'Unknown Site';
+  const siteObj = sites.find(site => site.id === waybill.siteId);
+  const siteName = siteObj
+    ? (siteObj.clientName ? `${siteObj.name} (${siteObj.clientName})` : siteObj.name)
+    : 'Unknown Site';
 
   return (
     <>
@@ -185,7 +192,7 @@ export const WaybillDocument = ({ waybill, sites, companySettings, onClose }: Wa
               onClick={handlePreview}
               variant="outline"
               className="flex-1 gap-2"
-              disabled={waybill.status === 'outstanding' || !hasPermission('print_documents')}
+              disabled={!hasPermission('print_documents')}
             >
               <Printer className="h-4 w-4" />
               Preview
@@ -193,7 +200,7 @@ export const WaybillDocument = ({ waybill, sites, companySettings, onClose }: Wa
             <Button
               onClick={handleSharePDF}
               className="flex-1 gap-2 bg-gradient-primary"
-              disabled={waybill.status === 'outstanding' || !hasPermission('print_documents')}
+              disabled={!hasPermission('print_documents')}
             >
               <Share2 className="h-4 w-4" />
               Share
@@ -217,11 +224,11 @@ export const WaybillDocument = ({ waybill, sites, companySettings, onClose }: Wa
               )}
             </div>
             <div className="flex gap-2">
-              <Button onClick={handlePreview} variant="outline" className="gap-2" disabled={waybill.status === 'outstanding' || !hasPermission('print_documents')}>
+              <Button onClick={handlePreview} variant="outline" className="gap-2" disabled={!hasPermission('print_documents')}>
                 <Printer className="h-4 w-4" />
                 Preview & Print
               </Button>
-              <Button onClick={handleSharePDF} className="gap-2 bg-gradient-primary" disabled={waybill.status === 'outstanding' || !hasPermission('print_documents')}>
+              <Button onClick={handleSharePDF} className="gap-2 bg-gradient-primary" disabled={!hasPermission('print_documents')}>
                 <Share2 className="h-4 w-4" />
                 Share PDF
               </Button>
@@ -239,7 +246,7 @@ export const WaybillDocument = ({ waybill, sites, companySettings, onClose }: Wa
           </div>
         )}
 
-        <div className="space-y-6 print:space-y-4">
+        <div className="space-y-6 print:space-y-4 min-h-0">
           {/* Header Information */}
           <div className="bg-muted/30 p-6 rounded-lg print:bg-transparent print:border print:p-4">
             <h2 className="text-lg font-semibold mb-4">Delivery Information</h2>
@@ -302,18 +309,16 @@ export const WaybillDocument = ({ waybill, sites, companySettings, onClose }: Wa
           <div>
             <h2 className="text-lg font-semibold mb-4">Items Issued</h2>
             <div className="border rounded-lg overflow-hidden">
-              <div className="bg-muted/50 px-4 py-3 font-medium grid grid-cols-4 gap-4 text-sm">
+              <div className="bg-muted/50 px-4 py-3 font-medium grid grid-cols-3 gap-4 text-sm">
                 <div>Asset Name</div>
                 <div>Quantity Issued</div>
-                <div>Quantity Returned</div>
                 <div>Status</div>
               </div>
 
               {waybill.items.map((item, index) => (
-                <div key={index} className="px-4 py-3 border-t grid grid-cols-4 gap-4 text-sm">
+                <div key={index} className="px-4 py-3 border-t grid grid-cols-3 gap-4 text-sm">
                   <div className="font-medium">{item.assetName}</div>
                   <div>{item.quantity}</div>
-                  <div>{item.returnedQuantity}</div>
                   <div>
                     <Badge
                       variant={
@@ -343,12 +348,6 @@ export const WaybillDocument = ({ waybill, sites, companySettings, onClose }: Wa
               <span>Total Quantity Issued:</span>
               <span className="font-medium">
                 {waybill.items.reduce((sum, item) => sum + item.quantity, 0)}
-              </span>
-            </div>
-            <div className="flex justify-between items-center text-sm mt-1">
-              <span>Total Quantity Returned:</span>
-              <span className="font-medium">
-                {waybill.items.reduce((sum, item) => sum + item.returnedQuantity, 0)}
               </span>
             </div>
           </div>

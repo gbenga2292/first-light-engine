@@ -10,10 +10,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Employee } from '@/types/asset';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Search, UserPlus, Edit, Trash2, BarChart3, X, Save, Mail, Phone } from 'lucide-react';
+import { Search, UserPlus, Edit, Trash2, BarChart3, X, Save, Mail, Phone, Upload } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { logActivity } from '@/utils/activityLogger';
 import { Combobox } from '@/components/ui/combobox';
+import { BulkImportDialog } from './BulkImportDialog';
+import { dataService } from '@/services/dataService';
 
 export interface EnhancedEmployeeManagementProps {
   employees: Employee[];
@@ -52,6 +54,7 @@ export const EnhancedEmployeeManagement: React.FC<EnhancedEmployeeManagementProp
   const [delistDate, setDelistDate] = useState('');
   const [isDelistDialogOpen, setIsDelistDialogOpen] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
 
   // Filtered employees
   const filteredEmployees = useMemo(() => {
@@ -81,7 +84,7 @@ export const EnhancedEmployeeManagement: React.FC<EnhancedEmployeeManagementProp
     setSelectedIds(newSelected);
   };
 
-  const handleAddEmployee = () => {
+  const handleAddEmployee = async () => {
     if (!newName.trim() || !newRole.trim()) {
       toast({
         title: 'Validation Error',
@@ -91,33 +94,33 @@ export const EnhancedEmployeeManagement: React.FC<EnhancedEmployeeManagementProp
       return;
     }
 
-    const newEmployee: Employee = {
-      id: Date.now().toString(),
-      name: newName.trim(),
-      role: newRole,
-      email: newEmail.trim(),
-      phone: newPhone.trim(),
-      status: 'active',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+    try {
+      const saved = await dataService.employees.createEmployee({
+        name: newName.trim(),
+        role: newRole,
+        email: newEmail.trim() || undefined,
+        phone: newPhone.trim() || undefined,
+        status: 'active',
+      });
 
-    const updated = [...employees, newEmployee];
-    onEmployeesChange(updated);
-    toast({
-      title: 'Success',
-      description: 'Employee added successfully'
-    });
-    setNewName('');
-    setNewRole('');
-    setNewEmail('');
-    setNewPhone('');
-    setIsAddDialogOpen(false);
-    logActivity({
-      action: 'create',
-      entity: 'employee',
-      details: `Added employee ${newName}`
-    });
+      const formatted: Employee = {
+        ...saved,
+        createdAt: new Date(saved.createdAt),
+        updatedAt: new Date(saved.updatedAt),
+      };
+
+      onEmployeesChange([...employees, formatted]);
+      toast({ title: 'Success', description: 'Employee added successfully' });
+      setNewName('');
+      setNewRole('');
+      setNewEmail('');
+      setNewPhone('');
+      setIsAddDialogOpen(false);
+      logActivity({ action: 'create', entity: 'employee', details: `Added employee ${newName}` });
+    } catch (err) {
+      console.error('Failed to add employee', err);
+      toast({ title: 'Error', description: 'Failed to save employee to database', variant: 'destructive' });
+    }
   };
 
   const handleEditEmployee = (empId: string) => {
@@ -131,7 +134,7 @@ export const EnhancedEmployeeManagement: React.FC<EnhancedEmployeeManagementProp
     }
   };
 
-  const handleSaveEmployee = () => {
+  const handleSaveEmployee = async () => {
     if (!editName.trim() || !editRole.trim()) {
       toast({
         title: 'Validation Error',
@@ -141,46 +144,54 @@ export const EnhancedEmployeeManagement: React.FC<EnhancedEmployeeManagementProp
       return;
     }
 
-    const updated = employees.map(e =>
-      e.id === editingId
-        ? { ...e, name: editName, role: editRole, email: editEmail, phone: editPhone, updatedAt: new Date() }
-        : e
-    );
-    onEmployeesChange(updated);
-    toast({
-      title: 'Success',
-      description: 'Employee updated successfully'
-    });
-    setEditingId(null);
-    setIsAddDialogOpen(false);
-    logActivity({
-      action: 'update',
-      entity: 'employee',
-      details: `Updated employee ${editName}`
-    });
+    try {
+      await dataService.employees.updateEmployee(editingId!, {
+        name: editName,
+        role: editRole,
+        email: editEmail || undefined,
+        phone: editPhone || undefined,
+      });
+
+      const updated = employees.map(e =>
+        e.id === editingId
+          ? { ...e, name: editName, role: editRole, email: editEmail, phone: editPhone, updatedAt: new Date() }
+          : e
+      );
+      onEmployeesChange(updated);
+      toast({ title: 'Success', description: 'Employee updated successfully' });
+      setEditingId(null);
+      setIsAddDialogOpen(false);
+      logActivity({ action: 'update', entity: 'employee', details: `Updated employee ${editName}` });
+    } catch (err) {
+      console.error('Failed to update employee', err);
+      toast({ title: 'Error', description: 'Failed to update employee in database', variant: 'destructive' });
+    }
   };
 
-  const handleDelistEmployee = () => {
+  const handleDelistEmployee = async () => {
     if (!employeeToDelete || !delistDate) return;
 
-    const updated = employees.map(e =>
-      e.id === employeeToDelete.id
-        ? { ...e, status: 'inactive' as const, delistedDate: new Date(delistDate), updatedAt: new Date() }
-        : e
-    );
-    onEmployeesChange(updated);
-    toast({
-      title: 'Success',
-      description: 'Employee delisted successfully'
-    });
-    setIsDelistDialogOpen(false);
-    setEmployeeToDelete(null);
-    setDelistDate('');
-    logActivity({
-      action: 'update',
-      entity: 'employee',
-      details: `Delisted employee ${employeeToDelete.name}`
-    });
+    try {
+      await dataService.employees.updateEmployee(employeeToDelete.id, {
+        status: 'inactive',
+        delistedDate: new Date(delistDate),
+      });
+
+      const updated = employees.map(e =>
+        e.id === employeeToDelete.id
+          ? { ...e, status: 'inactive' as const, delistedDate: new Date(delistDate), updatedAt: new Date() }
+          : e
+      );
+      onEmployeesChange(updated);
+      toast({ title: 'Success', description: 'Employee delisted successfully' });
+      setIsDelistDialogOpen(false);
+      setEmployeeToDelete(null);
+      setDelistDate('');
+      logActivity({ action: 'update', entity: 'employee', details: `Delisted employee ${employeeToDelete.name}` });
+    } catch (err) {
+      console.error('Failed to delist employee', err);
+      toast({ title: 'Error', description: 'Failed to update employee in database', variant: 'destructive' });
+    }
   };
 
   const handleCancelEdit = () => {
@@ -200,6 +211,56 @@ export const EnhancedEmployeeManagement: React.FC<EnhancedEmployeeManagementProp
     return 'bg-gray-100 text-gray-800';
   };
 
+  const EMPLOYEE_COLUMNS = [
+    { key: 'name', label: 'Name', required: true, aliases: ['full name', 'employee name'] },
+    { key: 'role', label: 'Role', required: true, aliases: ['position', 'job title'] },
+    { key: 'email', label: 'Email', required: false, aliases: ['email address'] },
+    { key: 'phone', label: 'Phone', required: false, aliases: ['phone number', 'mobile', 'contact'] },
+  ];
+
+  const handleBulkImport = async (importedRows: Record<string, string>[]) => {
+    const saved: Employee[] = [];
+    let failed = 0;
+
+    for (const row of importedRows) {
+      try {
+        const result = await dataService.employees.createEmployee({
+          name: row.name,
+          role: row.role,
+          email: row.email || undefined,
+          phone: row.phone || undefined,
+          status: 'active',
+        });
+        saved.push({
+          ...result,
+          createdAt: new Date(result.createdAt),
+          updatedAt: new Date(result.updatedAt),
+        });
+      } catch (err) {
+        console.error('Failed to import employee row:', row, err);
+        failed++;
+      }
+    }
+
+    if (saved.length > 0) {
+      onEmployeesChange([...employees, ...saved]);
+    }
+
+    toast({
+      title: failed === 0 ? 'Import Successful' : 'Import Completed with Errors',
+      description: `${saved.length} employee${saved.length !== 1 ? 's' : ''} imported${failed > 0 ? `, ${failed} failed` : ''}.`,
+      variant: failed > 0 && saved.length === 0 ? 'destructive' : 'default',
+    });
+
+    if (saved.length > 0) {
+      logActivity({
+        action: 'create',
+        entity: 'employee',
+        details: `Bulk imported ${saved.length} employees via Excel`,
+      });
+    }
+  };
+
   return (
     <div className="space-y-4 md:space-y-6 mt-4">
       {/* Header */}
@@ -211,6 +272,15 @@ export const EnhancedEmployeeManagement: React.FC<EnhancedEmployeeManagementProp
               Employee Management
             </CardTitle>
             <div className="flex gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                onClick={() => setIsImportDialogOpen(true)}
+                size={isMobile ? "sm" : "default"}
+                className="gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                {!isMobile && 'Import Excel'}
+              </Button>
               {hasPermission('write_employees') && (
                 <Button onClick={() => {
                   handleCancelEdit();
@@ -553,6 +623,17 @@ export const EnhancedEmployeeManagement: React.FC<EnhancedEmployeeManagementProp
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Import Dialog */}
+      <BulkImportDialog
+        open={isImportDialogOpen}
+        onOpenChange={setIsImportDialogOpen}
+        title="Import Employees from Excel"
+        description="Upload a spreadsheet with employee data. Download the template to see the expected format."
+        columns={EMPLOYEE_COLUMNS}
+        onImport={handleBulkImport}
+        templateFileName="employees_template.xlsx"
+      />
     </div>
   );
 };
