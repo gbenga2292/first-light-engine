@@ -190,7 +190,9 @@ const App = () => {
             'cyberpunk',
             'coffee',
             'matrix',
-            'sky'
+            'sky',
+            'tokyo-night',
+            'dune'
           ]}
         >
           <AuthProvider>

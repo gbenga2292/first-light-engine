@@ -15,7 +15,10 @@ export type Theme =
   | 'cyberpunk'
   | 'coffee'
   | 'matrix'
-  | 'sky';
+  | 'sky'
+  | 'tokyo-night'
+  | 'dune'
+  | 'sapphire';
 
 export interface ThemeOption {
   value: Theme;
@@ -104,6 +107,20 @@ export const themeOptions: ThemeOption[] = [
     category: 'vibrant',
   },
   {
+    value: 'tokyo-night',
+    label: 'Crimson Night',
+    description: 'Deep red and dark tones',
+    icon: '🏮',
+    category: 'vibrant',
+  },
+  {
+    value: 'dune',
+    label: 'Solar Flare',
+    description: 'Amber and yellow energy',
+    icon: '⚠️',
+    category: 'vibrant',
+  },
+  {
     value: 'cyberpunk',
     label: 'Cyberpunk',
     description: 'Neon vibrant colors',
@@ -130,6 +147,13 @@ export const themeOptions: ThemeOption[] = [
     description: 'Battery saver for OLED',
     icon: '📱',
     category: 'dark',
+  },
+  {
+    value: 'sapphire',
+    label: 'Sapphire',
+    description: 'Vibrant electric blue',
+    icon: '💎',
+    category: 'vibrant',
   },
 ];
 

@@ -15,24 +15,7 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({ onUnlock, onLogout
   const [isShaking, setIsShaking] = useState(false);
   const maxLength = 4;
 
-  const handleDigit = (digit: string) => {
-    if (pin.length >= maxLength) return;
-    const newPin = pin + digit;
-    setPin(newPin);
-    setError('');
-
-    if (newPin.length === maxLength) {
-      // Verify PIN
-      verifyPin(newPin);
-    }
-  };
-
-  const handleDelete = () => {
-    setPin(prev => prev.slice(0, -1));
-    setError('');
-  };
-
-  const verifyPin = async (enteredPin: string) => {
+  const verifyPin = React.useCallback(async (enteredPin: string) => {
     try {
       const { default: bcrypt } = await import('bcryptjs');
       const storedUser = localStorage.getItem('currentUser');
@@ -42,22 +25,39 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({ onUnlock, onLogout
       }
 
       const userId = JSON.parse(storedUser).id;
+      let pinHash = localStorage.getItem(`pin_hash_${userId}`);
 
-      // Fetch the pin_hash from DB
-      const { supabase } = await import('@/integrations/supabase/client');
-      const { data, error: dbError } = await (supabase as any)
-        .from('users')
-        .select('pin_hash')
-        .eq('id', userId)
-        .single();
+      // If we don't have a cached hash, try to fetch it
+      if (!pinHash) {
+        try {
+          const { supabase } = await import('@/integrations/supabase/client');
+          const { data, error: dbError } = await (supabase as any)
+            .from('users')
+            .select('pin_hash')
+            .eq('id', userId)
+            .single();
 
-      if (dbError || !data?.pin_hash) {
-        // No PIN set, allow through
-        onUnlock();
+          if (!dbError && data?.pin_hash) {
+            pinHash = data.pin_hash;
+            // Cache it for future offline use
+            localStorage.setItem(`pin_hash_${userId}`, pinHash!);
+          } else if (dbError) {
+            console.error('Error fetching PIN hash:', dbError);
+          } else if (!data?.pin_hash) {
+            onUnlock();
+            return;
+          }
+        } catch (err) {
+          console.error('Network error checking PIN:', err);
+        }
+      }
+
+      if (!pinHash) {
+        setError('OFFLINE: Cannot verify PIN. Connect to internet.');
         return;
       }
 
-      const isMatch = await bcrypt.compare(enteredPin, data.pin_hash);
+      const isMatch = await bcrypt.compare(enteredPin, pinHash);
       if (isMatch) {
         onUnlock();
       } else {
@@ -73,7 +73,43 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({ onUnlock, onLogout
       setError('Verification failed');
       setPin('');
     }
-  };
+  }, [onUnlock]);
+
+  const handleDigit = React.useCallback((digit: string) => {
+    setPin(prevPin => {
+      if (prevPin.length >= maxLength) return prevPin;
+      const newPin = prevPin + digit;
+
+      if (newPin.length === maxLength) {
+        setTimeout(() => verifyPin(newPin), 0);
+      }
+      return newPin;
+    });
+    setError('');
+  }, [verifyPin]);
+
+  const handleDelete = React.useCallback(() => {
+    setPin(prev => prev.slice(0, -1));
+    setError('');
+  }, []);
+
+  // Add keyboard support
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      if (e.key >= '0' && e.key <= '9') {
+        handleDigit(e.key);
+      } else if (e.key === 'Backspace') {
+        handleDelete();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleDigit, handleDelete]);
 
   const digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'delete'];
 

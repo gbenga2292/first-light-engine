@@ -150,21 +150,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 authId: authUser.id,
                 username: profile.username,
                 role: profile.role as UserRole,
-                customRoleId: profile.custom_role_id,
                 name: profile.name,
                 email: profile.email || authUser.email,
-                bio: profile.bio,
                 phone: profile.phone,
                 avatar: profile.avatar,
-                avatarColor: profile.avatar_color,
                 signatureUrl,
                 status: profile.is_active ? 'active' : 'inactive',
                 lastActive: profile.last_active_at,
                 created_at: profile.created_at,
                 updated_at: profile.updated_at,
                 emailVerified: authUser.email_confirmed_at !== null,
-                mfa_enabled: false, // TODO: Implement MFA with Supabase Auth
-                preferences: profile.preferences || {
+                mfa_enabled: false,
+                preferences: {
                     emailNotifications: true,
                     inAppNotifications: true,
                     lowStockAlerts: true,

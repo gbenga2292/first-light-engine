@@ -688,6 +688,147 @@ All colors MUST be HSL.
     --sidebar-border: 200 30% 85%;
     --sidebar-ring: 200 90% 50%;
   }
+
+  /* Tokyo Night Theme - Deep Red */
+  .tokyo-night {
+    --background: 340 25% 10%;
+    --foreground: 340 20% 95%;
+
+    --card: 340 20% 14%;
+    --card-foreground: 340 20% 95%;
+
+    --popover: 340 20% 14%;
+    --popover-foreground: 340 20% 95%;
+
+    --primary: 345 80% 55%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 345 80% 65%;
+
+    --secondary: 340 30% 20%;
+    --secondary-foreground: 340 20% 95%;
+
+    --muted: 340 20% 20%;
+    --muted-foreground: 340 20% 70%;
+
+    --accent: 355 75% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 90% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warning: 40 90% 60%;
+    --warning-foreground: 0 0% 0%;
+
+    --success: 140 70% 50%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 340 30% 25%;
+    --input: 340 30% 20%;
+    --ring: 345 80% 55%;
+
+    --sidebar-background: 340 25% 8%;
+    --sidebar-foreground: 340 20% 95%;
+    --sidebar-primary: 345 80% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 340 30% 18%;
+    --sidebar-accent-foreground: 340 20% 95%;
+    --sidebar-border: 340 30% 20%;
+    --sidebar-ring: 345 80% 55%;
+  }
+
+  /* Dune Theme - Desert Yellow */
+  .dune {
+    --background: 40 20% 10%;
+    --foreground: 45 40% 90%;
+
+    --card: 40 18% 14%;
+    --card-foreground: 45 40% 90%;
+
+    --popover: 40 18% 14%;
+    --popover-foreground: 45 40% 90%;
+
+    --primary: 45 90% 55%;
+    --primary-foreground: 0 0% 10%;
+    --primary-glow: 45 90% 65%;
+
+    --secondary: 40 25% 20%;
+    --secondary-foreground: 45 40% 90%;
+
+    --muted: 40 20% 20%;
+    --muted-foreground: 45 30% 70%;
+
+    --accent: 42 100% 50%;
+    --accent-foreground: 0 0% 10%;
+
+    --destructive: 0 80% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warning: 50 100% 50%;
+    --warning-foreground: 0 0% 10%;
+
+    --success: 120 60% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 40 30% 25%;
+    --input: 40 30% 20%;
+    --ring: 45 90% 55%;
+
+    --sidebar-background: 40 20% 8%;
+    --sidebar-foreground: 45 40% 90%;
+    --sidebar-primary: 45 90% 55%;
+    --sidebar-primary-foreground: 0 0% 10%;
+    --sidebar-accent: 40 25% 18%;
+    --sidebar-accent-foreground: 45 40% 90%;
+    --sidebar-border: 40 30% 20%;
+    --sidebar-ring: 45 90% 55%;
+  }
+
+  /* Sapphire Theme - Electric Blue */
+  .sapphire {
+    --background: 230 35% 10%;
+    --foreground: 210 20% 95%;
+
+    --card: 230 30% 14%;
+    --card-foreground: 210 20% 95%;
+
+    --popover: 230 30% 14%;
+    --popover-foreground: 210 20% 95%;
+
+    --primary: 225 90% 60%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 225 90% 70%;
+
+    --secondary: 230 25% 20%;
+    --secondary-foreground: 210 20% 95%;
+
+    --muted: 230 20% 22%;
+    --muted-foreground: 220 20% 70%;
+
+    --accent: 190 90% 60%;
+    --accent-foreground: 230 40% 10%;
+
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warning: 45 90% 60%;
+    --warning-foreground: 230 40% 10%;
+
+    --success: 150 70% 50%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 230 30% 20%;
+    --input: 230 30% 18%;
+    --ring: 225 90% 60%;
+
+    --sidebar-background: 230 35% 8%;
+    --sidebar-foreground: 210 20% 95%;
+    --sidebar-primary: 225 90% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 230 25% 18%;
+    --sidebar-accent-foreground: 210 20% 95%;
+    --sidebar-border: 230 30% 18%;
+    --sidebar-ring: 225 90% 60%;
+  }
 }
 
 @layer base {

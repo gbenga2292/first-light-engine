@@ -71,6 +71,12 @@ export const PinSetupCard: React.FC<PinSetupCardProps> = ({ isLoading = false })
 
       if (error) throw error;
 
+      // Update local cache so offline PIN works immediately
+      if (currentUser?.id) {
+        localStorage.setItem(`pin_hash_${currentUser.id}`, pinHash);
+        localStorage.setItem(`pin_status_${currentUser.id}`, 'enabled');
+      }
+
       toast.success('PIN set successfully! App will require PIN on reopen.');
       setHasPinSet(true);
       resetDialog();
@@ -90,6 +96,12 @@ export const PinSetupCard: React.FC<PinSetupCardProps> = ({ isLoading = false })
         .eq('id', currentUser?.id);
 
       if (error) throw error;
+
+      // Update local cache
+      if (currentUser?.id) {
+        localStorage.removeItem(`pin_hash_${currentUser.id}`);
+        localStorage.setItem(`pin_status_${currentUser.id}`, 'disabled');
+      }
 
       toast.success('PIN removed');
       setHasPinSet(false);

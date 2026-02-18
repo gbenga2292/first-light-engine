@@ -31,24 +31,60 @@ export const PinLockGuard: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Check if user has a PIN set
     const checkPin = async () => {
+      const userId = currentUser.id;
+      const statusKey = `pin_status_${userId}`;
+      const hashKey = `pin_hash_${userId}`;
+
+      const cachedStatus = localStorage.getItem(statusKey);
+      const cachedHash = localStorage.getItem(hashKey);
+
+      // Optimistic check: if we know they have a PIN, lock immediately
+      if (cachedStatus === 'enabled' || cachedHash) {
+        setIsLocked(true);
+        setChecking(false);
+        // We can still try to refresh in background if we want, but for now just trust cache to be fast
+      }
+
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('users')
           .select('pin_hash')
-          .eq('id', currentUser.id)
+          .eq('id', userId)
           .single();
 
+        if (error) {
+          throw error;
+        }
+
         if (data?.pin_hash) {
+          // PIN is enabled
+          localStorage.setItem(statusKey, 'enabled');
+          localStorage.setItem(hashKey, data.pin_hash);
           setIsLocked(true);
         } else {
-          // No PIN set, mark as unlocked
+          // No PIN set
+          localStorage.setItem(statusKey, 'disabled');
+          localStorage.removeItem(hashKey);
+
+          // Server confirms no PIN, so we unlock regardless of optimistic state
           sessionStorage.setItem(PIN_UNLOCKED_KEY, 'true');
+          setIsLocked(false);
         }
-      } catch {
-        // On error, don't lock
-        sessionStorage.setItem(PIN_UNLOCKED_KEY, 'true');
+      } catch (err) {
+        // Offline or error
+        console.warn('Error checking PIN status:', err);
+
+        // FALLBACK LOGIC
+        if (cachedStatus === 'disabled') {
+          // we know they don't have one
+          sessionStorage.setItem(PIN_UNLOCKED_KEY, 'true');
+          setIsLocked(false);
+        } else {
+          // If 'enabled' or UNKNOWN, we MUST LOCK to prevent bypass.
+          // Even if unknown, it's safer to lock.
+          setIsLocked(true);
+        }
       } finally {
         setChecking(false);
       }
